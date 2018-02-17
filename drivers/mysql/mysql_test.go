@@ -70,10 +70,12 @@ func TestDelete(t *testing.T) {
 		Delete().Execute(nil)
 	check(t, err, "delete")
 
-	c := conn.NewQuery().From("table1").Select().Where(dbflex.Eq("FullName", "FN 4")).Cursor(nil)
-	check(t, c.Error(), "fetch delete result")
-	if c.Count() != 0 {
-		check(t, toolkit.Errorf("Expected %d records got %d", 0, c.Count()), "")
+	m := struct{ N int }{}
+	err = conn.NewQuery().From("table1").Select("count(*) as N").Where(dbflex.Eq("FullName", "FN 4")).
+		Cursor(nil).Fetch(&m)
+	check(t, err, "fetch delete result")
+	if m.N != 0 {
+		t.Fatalf("delete fail. existing record %v", m.N)
 	}
 }
 

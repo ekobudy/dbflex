@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 
 	"github.com/eaciit/dbflex"
@@ -36,7 +35,7 @@ func (q *Query) Cursor(in toolkit.M) dbflex.ICursor {
 		return cursor
 	}
 
-	fmt.Println("Sql cursor command", cmdtxt)
+	//fmt.Println("Sql cursor command", cmdtxt)
 	rows, err := q.db.Query(cmdtxt)
 	if rows == nil {
 		cursor.SetError(toolkit.Errorf("%s. SQL Command: %s", err.Error(), cmdtxt))
