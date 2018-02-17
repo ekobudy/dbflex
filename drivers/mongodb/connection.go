@@ -52,18 +52,19 @@ func (c *Connection) Connect() error {
 	return nil
 }
 
-func (c *Connection) NewSession() (dbflex.ISession, error) {
-	if c.mgosession == nil {
-		return nil, toolkit.Errorf("Connection is not yet opened")
-	}
-	sess := c.mgosession.Clone()
-	s := new(Session)
-	s.mgosession = sess
-	s.mgodb = sess.DB(c.Database)
-	return s, nil
+func (c *Connection) NewQuery() dbflex.IQuery {
+	q := new(Query)
+	q.SetThis(q)
+	//q.session = c.mgosession
+	q.db = c.mgosession.DB(c.Database)
+	return q
 }
 
 func (c *Connection) ObjectNames(obj dbflex.ObjTypeEnum) []string {
+	if c.mgosession == nil {
+		return []string{}
+	}
+
 	mgoDb := c.mgosession.DB(c.Database)
 	if obj == "" {
 		obj = dbflex.ObjTypeAll

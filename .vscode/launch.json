@@ -16,6 +16,19 @@
             "env": {},
             "args": ["-test.v"],
             "showLog": true
+        },
+        {
+            "name": "MySQLTest",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "${workspaceRoot}/drivers/mysql",
+            "env": {},
+            "args": ["-test.v"],
+            "showLog": true
         }
     ]
 }

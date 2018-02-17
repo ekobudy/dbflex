@@ -22,7 +22,7 @@ type IConnection interface {
 	Connect() error
 	State() string
 	Close()
-	NewSession() (ISession, error)
+	NewQuery() IQuery
 	ObjectNames(ObjTypeEnum) []string
 }
 
@@ -37,8 +37,8 @@ func (b *ConnectionBase) Connect() error {
 }
 func (b *ConnectionBase) State() string { return "" }
 func (b *ConnectionBase) Close()        {}
-func (b *ConnectionBase) NewSession() (ISession, error) {
-	return nil, toolkit.Error("NewSession method is not yet implemented")
+func (b *ConnectionBase) NewQuery() IQuery {
+	return nil
 }
 func (b *ConnectionBase) ObjectNames(ot ObjTypeEnum) []string {
 	return []string{}

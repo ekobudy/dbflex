@@ -46,7 +46,7 @@ func Or(items ...*Filter) *Filter {
 }
 
 func Eq(field string, v interface{}) *Filter {
-	return NewFilter(field, OpEq, nil, nil)
+	return NewFilter(field, OpEq, v, nil)
 }
 
 func Ne(field string, v interface{}) *Filter {

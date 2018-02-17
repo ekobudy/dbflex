@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/eaciit/dbflex"
@@ -11,7 +12,6 @@ import (
 
 var (
 	conn   dbflex.IConnection
-	sess   dbflex.ISession
 	query  dbflex.IQuery
 	cursor dbflex.ICursor
 	err    error
@@ -26,7 +26,9 @@ type datamodel struct {
 func TestConnect(t *testing.T) {
 	conn = dbflex.NewConnectionFromUri("mongodb", "localhost:27123/dbtest", toolkit.M{}.Set("timeout", 3))
 	if err = conn.Connect(); err != nil {
-		t.Fatalf("unable to connect: %s", err.Error())
+		t.Errorf("unable to connect to database. test will be stopped")
+		os.Exit(100)
+		//t.Fatalf("unable to connect: %s", err.Error())
 	}
 }
 
@@ -38,15 +40,8 @@ func TestObjectNames(t *testing.T) {
 	}
 }
 
-func TestSession(t *testing.T) {
-	if sess, err = conn.NewSession(); err != nil {
-		t.Fatalf("unable to initiate new session: %s", err.Error())
-	}
-	//defer sess.Close()
-}
-
 func TestFetch(t *testing.T) {
-	query = sess.NewQuery()
+	query = conn.NewQuery()
 	query.From("tabletest").Select().Where(dbflex.EndWith("_id", "01"))
 	cursor = query.Cursor(nil).SetCloseAfterFetch()
 
@@ -61,7 +56,7 @@ func TestFetch(t *testing.T) {
 }
 
 func TestAggr(t *testing.T) {
-	query = sess.NewQuery()
+	query = conn.NewQuery()
 	query.From("tabletest").Select().Aggr(dbflex.NewAggrItem("c", dbflex.AggrCount, ""))
 	cursor = query.Cursor(nil).SetCloseAfterFetch()
 
@@ -76,55 +71,14 @@ func TestAggr(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	err := sess.NewQuery().From("tabletest").Save().Execute(toolkit.M{}.Set("data", &datamodel{"data04", "Name data04 - New", "Regular"}))
+	_, err := conn.NewQuery().From("tabletest").Save().Execute(toolkit.M{}.Set("data", &datamodel{"data04", "Name data04 - New", "Regular"}))
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
 }
 
-/*
-func TestFetchs(t *testing.T) {
-	query = sess.NewQuery()
-	query.From("tabletest").Select().Where(dbflex.And(dbflex.Eq("class", 3), dbflex.Gte("yearexperience", 3)))
-	cursor = query.Cursor(nil)
-
-	result := []toolkit.M{}
-	err = cursor.Fetchs(&result, 0)
-	if err != nil {
-		t.Fatalf("unable to fetch: %s", err.Error())
-	}
-}
-
-func TestCrud(t *testing.T) {
-	dm := new(datamodel)
-	dm.ID = "EMP01"
-	dm.Name = "Employee 01"
-	dm.Level = "Manager"
-
-	query.Reset().From("employees").Insert()
-	err = query.Execute(toolkit.M{}.Set("data", dm))
-	check(t, err, "unable to insert")
-	dr := Get("EMP01")
-	compare(t, dm.Name, dr.Name)
-
-	query.Reset().From("employees").Where(dbflex.Eq("id", "EMP01")).Update()
-	dm.Name = "Employee 01 - Update"
-	err = query.Execute(toolkit.M{}.Set("data", dm))
-	check(t, err, "unable to update")
-	dr = Get("EMP01")
-	compare(t, dm.Name, dr.Name)
-
-	query.Reset().From("employees").Where(dbflex.Eq("id", "EMP01")).Save()
-	dm.Name = "Employee 01 - Saved"
-	err = query.Execute(toolkit.M{}.Set("data", dm))
-	check(t, err, "unable to save")
-	dr = Get("EMP01")
-	compare(t, dm.Name, dr.Name)
-}
-*/
-
 func Get(id string) *datamodel {
-	cursor = sess.NewQuery().From("employees").Where(dbflex.Eq("id", id)).Cursor(nil)
+	cursor = conn.NewQuery().From("employees").Where(dbflex.Eq("id", id)).Cursor(nil)
 	res := &datamodel{}
 	if err := cursor.Fetch(&res); err != nil {
 		res.Name = ""

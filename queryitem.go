@@ -6,8 +6,8 @@ const (
 	QuerySelect    QueryOp = "SELECT"
 	QueryFrom              = "FROM"
 	QueryWhere             = "WHERE"
-	QueryGroup             = "GROUP BY"
-	QueryOrder             = "ORDER BY"
+	QueryGroup             = "GROUPBY"
+	QueryOrder             = "ORDERBY"
 	QueryInsert            = "INSERT"
 	QueryUpdate            = "UPDATE"
 	QueryDelete            = "DELETE"
@@ -18,11 +18,11 @@ const (
 	QueryTake              = "TAKE"
 	QuerySkip              = "SKIP"
 	QueryJoin              = "JOIN"
-	QueryLeftJoin          = "LEFT JOIN"
-	QueryRightJoin         = "RIGHT JOIN"
-	QueryData              = "DATA"
-	QueryParm              = "PARM"
-	QuerySQL               = "SQL"
+	QueryLeftJoin          = "LEFTJOIN"
+	QueryRightJoin         = "RIGHTJOIN"
+	//QueryData              = "DATA"
+	//QueryParm              = "PARM"
+	QuerySQL = "SQL"
 )
 
 type QueryItem struct {

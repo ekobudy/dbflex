@@ -1,19 +1,33 @@
 package dbflex
 
+import (
+	"github.com/eaciit/toolkit"
+)
+
 type ICursor interface {
 	Reset() error
 	Fetch(interface{}) error
 	Fetchs(interface{}, int) error
 	Count() int
 	Close()
+	Error() error
 	SetCloseAfterFetch() ICursor
 	CloseAfterFetch() bool
 }
 
 type CursorBase struct {
+	err             error
 	closeafterfetch bool
 
 	self ICursor
+}
+
+func (b *CursorBase) SetError(err error) {
+	b.err = err
+}
+
+func (b *CursorBase) Error() error {
+	return b.err
 }
 
 func (b *CursorBase) this() ICursor {
@@ -55,5 +69,8 @@ func (b *CursorBase) CloseAfterFetch() bool {
 }
 
 func (b *CursorBase) Close() {
+}
 
+func (b *CursorBase) Serialize(dest interface{}) error {
+	return toolkit.Error("Serialize is not yet implemented")
 }
