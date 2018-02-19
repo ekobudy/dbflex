@@ -9,17 +9,21 @@ type ICursor interface {
 	Fetch(interface{}) error
 	Fetchs(interface{}, int) error
 	Count() int
+	CountAsync() <-chan int
 	Close()
 	Error() error
 	SetCloseAfterFetch() ICursor
 	CloseAfterFetch() bool
+	SetCountQuery(IQuery)
+	CountQuery() IQuery
 }
 
 type CursorBase struct {
 	err             error
 	closeafterfetch bool
 
-	self ICursor
+	self       ICursor
+	countQuery IQuery
 }
 
 func (b *CursorBase) SetError(err error) {
@@ -56,7 +60,37 @@ func (b *CursorBase) Fetchs(interface{}, int) error {
 }
 
 func (b *CursorBase) Count() int {
-	return 0
+	if b.countQuery == nil {
+		b.SetError(toolkit.Errorf("cursor has no countquery"))
+		return 0
+	}
+
+	recordcount := struct {
+		Count int
+	}{}
+	err := b.countQuery.Cursor(nil).Fetch(&recordcount)
+	if err != nil {
+		b.SetError(toolkit.Errorf("unable to get count. %s", err.Error()))
+		return 0
+	}
+
+	return recordcount.Count
+}
+
+func (b *CursorBase) CountAsync() <-chan int {
+	out := make(chan int)
+	go func(o chan int) {
+		o <- b.Count()
+	}(out)
+	return out
+}
+
+func (b *CursorBase) SetCountQuery(q IQuery) {
+	b.countQuery = q
+}
+
+func (b *CursorBase) CountQuery() IQuery {
+	return b.countQuery
 }
 
 func (b *CursorBase) SetCloseAfterFetch() ICursor {

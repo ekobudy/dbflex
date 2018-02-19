@@ -206,10 +206,6 @@ func (c *Cursor) Fetchs(obj interface{}, n int) error {
 	return nil
 }
 
-func (c *Cursor) Count() int {
-	return 0
-}
-
 func (c *Cursor) Close() {
 	if c.fetcher != nil {
 		c.fetcher.Close()

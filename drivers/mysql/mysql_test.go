@@ -47,6 +47,17 @@ func TestInsert(t *testing.T) {
 	}
 }
 
+func TestCount(t *testing.T) {
+	c := conn.NewQuery().From("table1").Select().Cursor(nil)
+	check(t, c.Error(), "unable to initiate query")
+
+	count := c.Count()
+	if count != 5 {
+		t.Fatalf("expect %d got %d", 5, count)
+	}
+	check(t, c.Error(), "unable to initiate query")
+}
+
 func TestUpdate(t *testing.T) {
 	_, err := conn.NewQuery().From("table1").Where(dbflex.Eq("FullName", "FN 3")).
 		Update("email", "enable").
@@ -94,7 +105,8 @@ func (p *person) TableName() string {
 	return "table1"
 }
 
-func (p *person) Id() ([]string, []interface{}) {
+// IDInfo provides ID information of an object
+func (p *person) IDInfo() ([]string, []interface{}) {
 	return []string{"ID"}, []interface{}{p.ID}
 }
 

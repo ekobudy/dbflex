@@ -9,12 +9,14 @@ import (
 	"github.com/eaciit/toolkit"
 )
 
+// Query implementaion of dbflex.IQuery
 type Query struct {
 	rdbms.Query
 	db         *sql.DB
 	sqlcommand string
 }
 
+// Cursor produces a cursor from query
 func (q *Query) Cursor(in toolkit.M) dbflex.ICursor {
 	cursor := new(Cursor)
 	cursor.SetThis(cursor)
@@ -35,6 +37,17 @@ func (q *Query) Cursor(in toolkit.M) dbflex.ICursor {
 		return cursor
 	}
 
+	qitems := q.Config(dbflex.ConfigKeyGroupedQueryItems, dbflex.GroupedQueryItems{}).(dbflex.GroupedQueryItems)
+	tablename := q.Config(dbflex.ConfigKeyTableNames, []string{}).([]string)[0]
+	cq := new(Query)
+	cq.db = q.db
+	cq.SetThis(cq)
+	cq.From(tablename).Select("count(*) as Count")
+	if filter, ok := qitems[dbflex.ConfigKeyWhere]; ok {
+		cq.Where(filter[0].Value.(*dbflex.Filter))
+	}
+	cursor.SetCountQuery(cq)
+
 	//fmt.Println("Sql cursor command", cmdtxt)
 	rows, err := q.db.Query(cmdtxt)
 	if rows == nil {
@@ -45,6 +58,7 @@ func (q *Query) Cursor(in toolkit.M) dbflex.ICursor {
 	return cursor
 }
 
+// Execute will executes non-select command of a query
 func (q *Query) Execute(in toolkit.M) (interface{}, error) {
 	if err := q.Prepare(); err != nil {
 		return nil, toolkit.Errorf("prepare: %s", err.Error())
@@ -100,6 +114,7 @@ func (q *Query) Execute(in toolkit.M) (interface{}, error) {
 	return r, nil
 }
 
+// ExecType to identify type of exec
 type ExecType int
 
 const (
