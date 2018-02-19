@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/eaciit/dbflex"
+
 	"github.com/eaciit/toolkit"
 	mgo "gopkg.in/mgo.v2"
 
@@ -190,6 +192,16 @@ func (q *Query) Cursor(m M) df.ICursor {
 	aggrs, hasAggr := parts[df.QueryAggr]
 	groupby, hasGroup := parts[df.QueryGroup]
 
+	cq := new(Query)
+	cq.SetThis(cq)
+	cq.db = q.db
+	cursor.SetCountQuery(cq)
+	cq.Aggr(dbflex.NewAggrItem("Count", df.AggrCount, ""))
+	cq.From(tablenames[0])
+	if f, ok := parts[dbflex.QueryWhere]; ok {
+		cq.Where(f[0].Value.(*dbflex.Filter))
+	}
+
 	if hasAggr {
 		pipes := []M{}
 		items := aggrs[0].Value.([]*df.AggrItem)
@@ -269,7 +281,8 @@ func (q *Query) Execute(m M) (interface{}, error) {
 	case df.QueryUpdate:
 		var err error
 		if hasWhere {
-			singleupdate := m.Get("singleupdate", true).(bool)
+			//singleupdate := m.Get("singleupdate", true).(bool)
+			singleupdate := false
 			if !singleupdate {
 				//-- get the field for update
 				updateqi, _ := parts[df.QueryUpdate]
@@ -286,7 +299,7 @@ func (q *Query) Execute(m M) (interface{}, error) {
 					for k, v := range dataM {
 						for _, u := range updatevals {
 							if strings.ToLower(k) == strings.ToLower(u) {
-								dataS[strings.ToLower(k)] = v
+								dataS[k] = v
 							}
 						}
 					}

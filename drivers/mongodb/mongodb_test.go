@@ -37,14 +37,22 @@ func TestInsert(t *testing.T) {
 		check(t, err, "unable to insert")
 	}
 
-	recordcount := struct {
-		N int
-	}{}
-	err := conn.NewQuery().From(tablename).Select("count(*) as N").Cursor(nil).Fetch(&recordcount)
-	check(t, err, "unable to detect count")
-	if recordcount.N != 5 {
-		check(t, toolkit.Errorf("Expected %d records got %d", 5, recordcount.N), "")
+	cursor := conn.NewQuery().From(tablename).Select().Cursor(nil)
+	count := cursor.Count()
+	if count != 5 {
+		check(t, toolkit.Errorf("Expected %d records got %d", 5, count), "")
 	}
+}
+
+func TestCount(t *testing.T) {
+	c := conn.NewQuery().From(tablename).Select().Cursor(nil)
+	check(t, c.Error(), "unable to initiate query")
+
+	count := c.Count()
+	if count != 5 {
+		t.Fatalf("expect %d got %d", 5, count)
+	}
+	check(t, c.Error(), "unable to initiate query")
 }
 
 func TestUpdate(t *testing.T) {
@@ -53,7 +61,7 @@ func TestUpdate(t *testing.T) {
 		Update("email", "enable").
 		Execute(toolkit.M{}.Set("data", toolkit.M{}.
 			//Set("_id", 1).
-			//Set("FullName", "ED 3").
+			//Set("FullName", "FN 3").
 			Set("Email", "em3@eaciit.com").
 			Set("Enable", 0)))
 	check(t, err, "update")
