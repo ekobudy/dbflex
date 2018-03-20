@@ -75,6 +75,9 @@ func NewConnectionFromUri(uri string, config toolkit.M) IConnection {
 	if fn, ok := drivers[driver]; ok {
 		si := new(ServerInfo)
 		si.Host = u.Host
+		if len(u.Path) > 1 {
+			si.Database = u.Path[1:]
+		}
 		if config != nil {
 			si.Config = config
 		} else {
