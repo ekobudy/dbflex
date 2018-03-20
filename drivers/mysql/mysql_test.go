@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	sqlconnectionstring = "root:Database.1@localhost:3306/ectestdb"
+	sqlconnectionstring = "mysql://root:Database.1@localhost:3306/ectestdb"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 )
 
 func TestConnect(t *testing.T) {
-	conn = dbflex.NewConnectionFromUri("mysql", sqlconnectionstring, nil)
+	conn = dbflex.NewConnectionFromUri(sqlconnectionstring, nil)
 	if err := conn.Connect(); err != nil {
 		t.Fatal(err)
 	}

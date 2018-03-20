@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	sqlconnectionstring = "localhost:27123/dbtest"
+	sqlconnectionstring = "mongodb://localhost:27123/dbtest"
 	tablename           = "dftable1"
 )
 
@@ -17,7 +17,7 @@ var (
 )
 
 func TestConnect(t *testing.T) {
-	conn = dbflex.NewConnectionFromUri("mongodb", sqlconnectionstring, nil)
+	conn = dbflex.NewConnectionFromUri(sqlconnectionstring, nil)
 	if err := conn.Connect(); err != nil {
 		t.Fatal(err)
 	}

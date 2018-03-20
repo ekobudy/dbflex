@@ -1,7 +1,7 @@
 package dbflex
 
 import (
-	"strings"
+	"net/url"
 
 	"github.com/eaciit/toolkit"
 )
@@ -46,7 +46,6 @@ func (b *ConnectionBase) ObjectNames(ot ObjTypeEnum) []string {
 
 type ServerInfo struct {
 	Host, User, Password, Database string
-	Port                           int
 	Config                         toolkit.M
 }
 
@@ -66,53 +65,30 @@ func NewConnectionFromConfig(driver, path, name string) IConnection {
 	return nil
 }
 
-func NewConnectionFromUri(driver, uri string, config toolkit.M) IConnection {
+func NewConnectionFromUri(uri string, config toolkit.M) IConnection {
+	u, e := url.Parse(uri)
+	if e != nil {
+		return nil
+	}
+
+	driver := u.Scheme
 	if fn, ok := drivers[driver]; ok {
-		si := ParseServerInfo(uri)
-		si.Config = config
+		si := new(ServerInfo)
+		si.Host = u.Host
+		if config != nil {
+			si.Config = config
+		} else {
+			si.Config = toolkit.M{}
+		}
+		if u.RawQuery != "" {
+			mq, e := url.ParseQuery(u.RawQuery)
+			if e != nil {
+				for k, v := range mq {
+					si.Config.Set(k, v)
+				}
+			}
+		}
 		return fn(si)
 	}
 	return nil
-}
-
-func ParseServerInfo(s string) *ServerInfo {
-	logins := ""
-	hosts := ""
-	loginhosts := strings.Split(s, "@")
-
-	if len(loginhosts) >= 2 {
-		logins = loginhosts[0]
-		hosts = loginhosts[1]
-	} else if len(loginhosts) == 1 {
-		hosts = loginhosts[0]
-	}
-
-	si := new(ServerInfo)
-	if logins != "" {
-		details := strings.Split(logins, ":")
-		if len(details) >= 2 {
-			si.User = details[0]
-			si.Password = details[1]
-		} else if len(details) == 1 {
-			si.User = details[0]
-		}
-	}
-
-	if hosts != "" {
-		details := strings.Split(hosts, "/")
-		if len(details) == 2 {
-			si.Database = details[1]
-			hosts = details[0]
-
-		}
-
-		details = strings.Split(hosts, ":")
-		if len(details) == 2 {
-			si.Port = toolkit.ToInt(details[1], toolkit.RoundingAuto)
-			si.Host = details[0]
-		} else if len(details) == 1 {
-			si.Host = details[0]
-		}
-	}
-	return si
 }

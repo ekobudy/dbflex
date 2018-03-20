@@ -35,9 +35,6 @@ func (c *Connection) Connect() error {
 	}
 	info.Database = c.Database
 	host := c.Host
-	if c.Port != 0 {
-		host = toolkit.Sprintf("%s:%d", host, c.Port)
-	}
 	info.Addrs = []string{host}
 	timeout := c.Config.GetInt("timeout")
 	if timeout > 0 {

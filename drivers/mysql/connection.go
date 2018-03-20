@@ -26,7 +26,7 @@ func init() {
 
 // Connect to database instance
 func (c *Connection) Connect() error {
-	sqlconnstring := toolkit.Sprintf("tcp(%s:%d)/%s", c.Host, c.Port, c.Database)
+	sqlconnstring := toolkit.Sprintf("tcp(%s)/%s", c.Host, c.Database)
 	if c.User != "" {
 		sqlconnstring = toolkit.Sprintf("%s:%s@%s", c.User, c.Password, sqlconnstring)
 	}

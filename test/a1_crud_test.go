@@ -24,7 +24,7 @@ type datamodel struct {
 }
 
 func TestConnect(t *testing.T) {
-	conn = dbflex.NewConnectionFromUri("mongodb", "localhost:27123/dbtest", toolkit.M{}.Set("timeout", 3))
+	conn = dbflex.NewConnectionFromUri("mongodb://localhost:27123/dbtest", toolkit.M{}.Set("timeout", 3))
 	if err = conn.Connect(); err != nil {
 		t.Errorf("unable to connect to database. test will be stopped")
 		os.Exit(100)
