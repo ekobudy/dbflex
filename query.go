@@ -11,70 +11,54 @@ const (
 	ConfigKeyCommandType              = "dbfcmdtype"
 	ConfigKeyGroupedQueryItems        = "dbfgqis"
 	ConfigKeyWhere                    = "dbfwhere"
-	ConfigKeyTableNames               = "tablenames"
+	ConfigKeyTableName                = "tablenames"
+	ConfigKeyFilter                   = "filter"
 )
 
 type IQuery interface {
-	/*
-		BuildCommand(toolkit.M) (interface{}, error)
-		BuildFilter(*Filter, toolkit.M) (interface{}, error)
-		Prepare() ICursor
-		Cursor(toolkit.M) ICursor
-		Execute(toolkit.M) (interface{}, error)
-	*/
 	This() IQuery
-
-	BuildCommand() (interface{}, error)
 	BuildFilter(*Filter) (interface{}, error)
-	Prepare() error
+	BuildCommand() (interface{}, error)
+
 	Cursor(toolkit.M) ICursor
 	Execute(toolkit.M) (interface{}, error)
-	ExecCursor(toolkit.M) ICursor
-	ExecQuery(toolkit.M) (interface{}, error)
-
-	Reset() IQuery
-	Select(...string) IQuery
-	From(string) IQuery
-	Where(*Filter) IQuery
-	OrderBy(...string) IQuery
-	GroupBy(...string) IQuery
-
-	Aggr(...*AggrItem) IQuery
-	Insert(...string) IQuery
-	Update(...string) IQuery
-	Delete() IQuery
-	Save() IQuery
-
-	Take(int) IQuery
-	Skip(int) IQuery
-
-	Command(string, interface{}) IQuery
-	SQL(string) IQuery
 
 	SetConfig(string, interface{})
 	SetConfigM(toolkit.M)
 	Config(string, interface{}) interface{}
-	GetConfig(string, interface{}) interface{}
 	DeleteConfig(...string)
+
+	Connection() IConnection
+	SetConnection(IConnection)
 }
 
 type QueryBase struct {
 	items []*QueryItem
 
 	self        IQuery
-	commandType QueryOp
+	commandType string
 
 	prepared bool
+	cmd      ICommand
+	conn     IConnection
 
 	config toolkit.M
 }
 
-type GroupedQueryItems map[QueryOp][]*QueryItem
+type GroupedQueryItems map[string][]*QueryItem
 
 func (q *QueryBase) initConfig() {
 	if q.config == nil {
 		q.config = toolkit.M{}
 	}
+}
+
+func (q *QueryBase) Connection() IConnection {
+	return q.conn
+}
+
+func (q *QueryBase) SetConnection(conn IConnection) {
+	q.conn = conn
 }
 
 func (q *QueryBase) SetConfig(key string, value interface{}) {
@@ -89,10 +73,6 @@ func (q *QueryBase) SetConfigM(in toolkit.M) {
 }
 
 func (q *QueryBase) Config(key string, def interface{}) interface{} {
-	return q.GetConfig(key, def)
-}
-
-func (q *QueryBase) GetConfig(key string, def interface{}) interface{} {
 	q.initConfig()
 	return q.config.Get(key, def)
 }
@@ -105,12 +85,12 @@ func (q *QueryBase) DeleteConfig(deletedkeys ...string) {
 }
 
 func (b *QueryBase) BuildCommand() (interface{}, error) {
-	return nil, fmt.Errorf("Build command is not yet implemented")
+	return nil, fmt.Errorf("Parse command is not yet implemented")
 }
 
-func (b *QueryBase) BuildGroupedQueryItems() GroupedQueryItems {
+func buildGroupedQueryItems(cmd ICommand, b IQuery) error {
 	groupeditems := GroupedQueryItems{}
-	for _, i := range b.items {
+	for _, i := range cmd.(*CommandBase).items {
 		gi, ok := groupeditems[i.Op]
 		if !ok {
 			gi = []*QueryItem{i}
@@ -120,37 +100,58 @@ func (b *QueryBase) BuildGroupedQueryItems() GroupedQueryItems {
 		groupeditems[i.Op] = gi
 	}
 
+	if _, ok := groupeditems[QueryFrom]; ok {
+		fromItems := groupeditems[QueryFrom]
+		for _, fromItem := range fromItems {
+			b.This().SetConfig(ConfigKeyTableName, fromItem.Value.(string))
+		}
+	}
+
+	if filter, ok := groupeditems[QueryWhere]; ok {
+		translatedFilter, err := b.This().BuildFilter(filter[0].Value.(*Filter))
+		if err != nil {
+			return err
+		}
+		b.This().SetConfig(ConfigKeyWhere, translatedFilter)
+		b.This().SetConfig(ConfigKeyFilter, filter[0].Value.(*Filter))
+	}
+
 	if _, ok := groupeditems[QuerySelect]; ok {
-		b.commandType = QuerySelect
+		b.This().SetConfig(ConfigKeyCommandType, QuerySelect)
 		fields := groupeditems[QuerySelect][0].Value.([]string)
 		if len(fields) > 0 {
 			b.This().SetConfig("fields", fields)
 		}
 	} else if _, ok := groupeditems[QueryAggr]; ok {
-		b.commandType = QuerySelect
+		b.This().SetConfig(ConfigKeyCommandType, QuerySelect)
 	} else if _, ok = groupeditems[QueryInsert]; ok {
-		b.commandType = QueryInsert
+		b.This().SetConfig(ConfigKeyCommandType, QueryInsert)
 		fields := groupeditems[QueryInsert][0].Value.([]string)
 		if len(fields) > 0 {
 			b.This().SetConfig("fields", fields)
 		}
 	} else if _, ok = groupeditems[QueryUpdate]; ok {
-		b.commandType = QueryUpdate
+		b.This().SetConfig(ConfigKeyCommandType, QueryUpdate)
 		fields := groupeditems[QueryUpdate][0].Value.([]string)
 		if len(fields) > 0 {
 			b.This().SetConfig("fields", fields)
 		}
 	} else if _, ok = groupeditems[QueryDelete]; ok {
-		b.commandType = QueryDelete
+		b.This().SetConfig(ConfigKeyCommandType, QueryDelete)
 	} else if _, ok = groupeditems[QuerySave]; ok {
-		b.commandType = QuerySave
+		b.This().SetConfig(ConfigKeyCommandType, QuerySave)
 	} else if _, ok = groupeditems[QuerySQL]; ok {
-		b.commandType = QuerySQL
+		b.This().SetConfig(ConfigKeyCommandType, QuerySQL)
 	} else {
-		b.commandType = QueryCommand
+		b.This().SetConfig(ConfigKeyCommandType, QueryCommand)
 	}
+	b.This().SetConfig(ConfigKeyGroupedQueryItems, groupeditems)
 
-	return groupeditems
+	qop := b.Config(ConfigKeyCommandType, "")
+	if qop == "" {
+		return toolkit.Errorf("unable to build group query items. Invalid QueryOP is defined (%s)", qop)
+	}
+	return nil
 }
 
 func (b *QueryBase) SetThis(o IQuery) {
@@ -165,14 +166,11 @@ func (b *QueryBase) This() IQuery {
 	}
 }
 
-func (b *QueryBase) CommandType() QueryOp {
-	return b.commandType
-}
-
 func (b *QueryBase) BuildFilter(f *Filter) (interface{}, error) {
 	return nil, toolkit.Error("Build filter is not yet implemented")
 }
 
+/*
 func (b *QueryBase) Reset() IQuery {
 	b.items = []*QueryItem{}
 	return b.This()
@@ -259,7 +257,7 @@ func (b *QueryBase) Prepare() error {
 			for _, v := range froms {
 				tablenames = append(tablenames, v.Value.(string))
 			}
-			b.config.Set(ConfigKeyTableNames, tablenames)
+			b.config.Set(ConfigKeyTableName, tablenames)
 		}
 
 		filter, ok := gqis[QueryWhere]
@@ -280,17 +278,19 @@ func (b *QueryBase) Prepare() error {
 	}
 	return nil
 }
+*/
 
 func (b *QueryBase) Cursor(in toolkit.M) ICursor {
-	b.This().Prepare()
-	return b.This().ExecCursor(in)
+	c := new(CursorBase)
+	c.SetError(toolkit.Error("Cursor is not yet implemented"))
+	return c
 }
 
 func (b *QueryBase) Execute(in toolkit.M) (interface{}, error) {
-	b.This().Prepare()
-	return b.This().ExecQuery(in)
+	return nil, toolkit.Error("Execute is not yet implemented")
 }
 
+/*
 func (b *QueryBase) ExecCursor(in toolkit.M) ICursor {
 	c := new(CursorBase)
 	c.SetError(toolkit.Error("ExecCursor is not yet implemented"))
@@ -300,3 +300,4 @@ func (b *QueryBase) ExecCursor(in toolkit.M) ICursor {
 func (b *QueryBase) ExecQuery(in toolkit.M) (interface{}, error) {
 	return nil, toolkit.Error("ExecQuery is not yet implemented")
 }
+*/

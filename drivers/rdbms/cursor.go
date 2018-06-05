@@ -15,6 +15,7 @@ import (
 type IRdbmsCursor interface {
 	Serialize(interface{}) error
 	SerializeField(string, interface{}) (interface{}, error)
+	GetValueType([]byte) reflect.Type
 }
 
 type Cursor struct {
@@ -117,24 +118,33 @@ func (c *Cursor) SerializeField(name string, value interface{}) (interface{}, er
 func (c *Cursor) Serialize(dest interface{}) error {
 	var err error
 	mobj := toolkit.M{}
-	toolkit.Serde(c.m, &mobj, "")
+	toolkit.Serde(dest, &mobj, "")
 
 	//-- if dateTypeList if not yet created, create new one
 	if len(c.dataTypeList) == 0 {
-		for k, v := range c.m {
-			c.dataTypeList.Set(k, reflect.TypeOf(c.valuesPtr[v.(int)]))
+		for k, v := range mobj {
+			typeName := reflect.TypeOf(c.valuesPtr[toolkit.ToInt(v, toolkit.RoundingAuto)])
+			toolkit.Printfn("Type: %s", typeName)
+			c.dataTypeList.Set(k, typeName)
 		}
 	}
 
 	for k, v := range c.m {
 		var vtr interface{}
-		if vtr, err = c.this().(IRdbmsCursor).SerializeField(k, string(c.values[v.(int)].([]byte))); err != nil {
+		if vtr, err = c.this().(IRdbmsCursor).
+			SerializeField(k,
+				string(c.values[toolkit.ToInt(v, toolkit.RoundingAuto)].([]byte))); err != nil {
 			return err
 		} else {
 			mobj.Set(k, vtr)
 		}
 	}
-	return toolkit.Serde(mobj, dest, "")
+
+	err = toolkit.Serde(mobj, dest, "")
+	if err != nil {
+		return toolkit.Error(err.Error() + toolkit.Sprintf(" object: %s", toolkit.JsonString(mobj)))
+	}
+	return nil
 }
 
 func (c *Cursor) GetDataTypeString(name string) string {
@@ -154,7 +164,8 @@ func (c *Cursor) Fetch(obj interface{}) error {
 	if err != nil {
 		return err
 	}
-	c.GetTypeList(obj)
+	c.getTypeList(obj)
+	//toolkit.Printfn("TypeList: %s", toolkit.JsonString(c.dataTypeList))
 	err = c.this().(IRdbmsCursor).Serialize(obj)
 	if err != nil {
 		return err
@@ -166,12 +177,12 @@ func (c *Cursor) Fetchs(obj interface{}, n int) error {
 	var err error
 
 	//--- get first model
-	if c.dataTypeList != nil {
+	if c.dataTypeList == nil || len(c.dataTypeList) == 0 {
 		var single interface{}
 		if single, err = toolkit.GetEmptySliceElement(obj); err != nil {
 			return toolkit.Errorf("unable to get slice elemnt: %s", err.Error())
 		}
-		c.GetTypeList(single)
+		c.getTypeList(single)
 	}
 
 	i := 0
@@ -180,8 +191,9 @@ func (c *Cursor) Fetchs(obj interface{}, n int) error {
 	for loop {
 		err = c.Scan()
 		if err != nil {
-			if n == 0 {
+			if n == 0 && err.Error() == "EOF" {
 				loop = false
+				err = nil
 			} else {
 				return err
 			}
@@ -199,7 +211,7 @@ func (c *Cursor) Fetchs(obj interface{}, n int) error {
 		}
 	}
 
-	//err = toolkit.Serde(ms, obj, "")
+	err = toolkit.Serde(ms, obj, "")
 	if err != nil {
 		return err
 	}
@@ -212,10 +224,32 @@ func (c *Cursor) Close() {
 	}
 }
 
-func (c *Cursor) GetTypeList(obj interface{}) {
+func (c *Cursor) getTypeList(obj interface{}) {
 	c.dataTypeList = toolkit.M{}
 	fieldnames, fieldtypes, _, _ := ParseSQLMetadata(obj)
 	for i, name := range fieldnames {
 		c.dataTypeList.Set(name, fieldtypes[i])
 	}
+
+	//-- obj is not accepting, retrieve via fetcher
+	if len(fieldnames) == 0 {
+		for k, v := range c.m {
+			vindex := v.(int)
+			vbytes := c.values[vindex].([]byte)
+			vtype := c.this().(IRdbmsCursor).GetValueType(vbytes)
+			c.dataTypeList.Set(k, vtype)
+		}
+	}
+}
+
+func (c *Cursor) GetValueType(bs []byte) reflect.Type {
+	var vtype reflect.Type
+	value := string(bs)
+
+	if _, e := toolkit.IsStringNumber(value, ""); e == nil {
+		vtype = reflect.TypeOf(float64(0))
+	} else {
+		vtype = reflect.TypeOf("")
+	}
+	return vtype
 }

@@ -1,6 +1,8 @@
 package dbflex
 
 import (
+	"errors"
+
 	"github.com/eaciit/toolkit"
 )
 
@@ -14,16 +16,20 @@ type ICursor interface {
 	Error() error
 	SetCloseAfterFetch() ICursor
 	CloseAfterFetch() bool
-	SetCountQuery(IQuery)
-	CountQuery() IQuery
+	SetCountCommand(ICommand)
+	CountCommand() ICommand
+
+	Query() IQuery
+	SetQuery(IQuery)
 }
 
 type CursorBase struct {
 	err             error
 	closeafterfetch bool
 
-	self       ICursor
-	countQuery IQuery
+	self         ICursor
+	countCommand ICommand
+	query        IQuery
 }
 
 func (b *CursorBase) SetError(err error) {
@@ -32,6 +38,14 @@ func (b *CursorBase) SetError(err error) {
 
 func (b *CursorBase) Error() error {
 	return b.err
+}
+
+func (b *CursorBase) Query() IQuery {
+	return b.query
+}
+
+func (b *CursorBase) SetQuery(q IQuery) {
+	b.query = q
 }
 
 func (b *CursorBase) this() ICursor {
@@ -48,27 +62,34 @@ func (b *CursorBase) SetThis(o ICursor) ICursor {
 }
 
 func (b *CursorBase) Reset() error {
-	panic("not implemented")
+	return errors.New("not implemented")
 }
 
 func (b *CursorBase) Fetch(interface{}) error {
-	panic("not implemented")
+	return errors.New("not implemented")
 }
 
 func (b *CursorBase) Fetchs(interface{}, int) error {
-	panic("not implemented")
+	return errors.New("not implemented")
 }
 
 func (b *CursorBase) Count() int {
-	if b.countQuery == nil {
-		b.SetError(toolkit.Errorf("cursor has no countquery"))
+	if b.countCommand == nil {
+		b.SetError(toolkit.Errorf("cursor has no count command"))
 		return 0
 	}
 
 	recordcount := struct {
 		Count int
 	}{}
-	err := b.countQuery.Cursor(nil).Fetch(&recordcount)
+
+	if b.query == nil {
+		b.SetError(toolkit.Errorf("query object is not defined"))
+		return 0
+	}
+
+	//err := b.countCommand.Cursor(nil).Fetch(&recordcount)
+	err := b.query.Connection().Cursor(b.CountCommand(), nil).Fetch(&recordcount)
 	if err != nil {
 		b.SetError(toolkit.Errorf("unable to get count. %s", err.Error()))
 		return 0
@@ -85,12 +106,12 @@ func (b *CursorBase) CountAsync() <-chan int {
 	return out
 }
 
-func (b *CursorBase) SetCountQuery(q IQuery) {
-	b.countQuery = q
+func (b *CursorBase) SetCountCommand(q ICommand) {
+	b.countCommand = q
 }
 
-func (b *CursorBase) CountQuery() IQuery {
-	return b.countQuery
+func (b *CursorBase) CountCommand() ICommand {
+	return b.countCommand
 }
 
 func (b *CursorBase) SetCloseAfterFetch() ICursor {

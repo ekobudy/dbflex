@@ -31,40 +31,39 @@ func (d *DatamodelBase) PostSave() {
 func Get(conn IConnection, model IDataModel) error {
 	tablename := model.TableName()
 	where := GenerateFilterFromDataModel(model)
-	return conn.NewQuery().From(tablename).Select().Where(where).Cursor(toolkit.M{}).SetCloseAfterFetch().Fetch(model)
+	return conn.Cursor(From(tablename).Select().Where(where), toolkit.M{}).SetCloseAfterFetch().Fetch(model)
 }
 
 func Gets(conn IConnection, model IDataModel, buffer interface{}, qp *QueryParam) error {
 	tablename := model.TableName()
 
-	q := conn.NewQuery().From(tablename).Select()
+	cmd := From(tablename).Select()
 	if qp != nil {
-
 		if qp.Where != nil {
-			q.Where(qp.Where)
+			cmd.Where(qp.Where)
 		}
 
 		if len(qp.Sort) > 0 {
-			q.OrderBy(qp.Sort...)
+			cmd.OrderBy(qp.Sort...)
 		}
 
 		if qp.Skip > 0 {
-			q.Skip(qp.Skip)
+			cmd.Skip(qp.Skip)
 		}
 
 		if qp.Take > 0 {
-			q.Take(qp.Take)
+			cmd.Take(qp.Take)
 		}
 	}
 
-	err := q.Cursor(nil).SetCloseAfterFetch().Fetchs(buffer, 0)
+	err := conn.Cursor(cmd, nil).SetCloseAfterFetch().Fetchs(buffer, 0)
 	return err
 }
 
 func Insert(conn IConnection, dm IDataModel) error {
 	tablename := dm.TableName()
 	dm.PreSave()
-	_, err := conn.NewQuery().From(tablename).Insert().Execute(toolkit.M{}.Set("data", dm))
+	_, err := conn.Execute(From(tablename).Insert(), toolkit.M{}.Set("data", dm))
 	if err != nil {
 		dm.PostSave()
 	}
@@ -76,14 +75,14 @@ func Save(conn IConnection, dm IDataModel) error {
 	filter := GenerateFilterFromDataModel(dm)
 
 	dmexist := toolkit.M{}
-	errexist := conn.NewQuery().From(tablename).Where(filter).Cursor(nil).SetCloseAfterFetch().Fetch(&dmexist)
+	errexist := conn.Cursor(From(tablename).Where(filter), nil).SetCloseAfterFetch().Fetch(&dmexist)
 
 	dm.PreSave()
 	var err error
 	if errexist == nil {
-		_, err = conn.NewQuery().From(tablename).Where(filter).Update().Execute(toolkit.M{}.Set("data", dm))
+		_, err = conn.Execute(From(tablename).Where(filter).Update(), toolkit.M{}.Set("data", dm))
 	} else {
-		_, err = conn.NewQuery().From(tablename).Insert().Execute(toolkit.M{}.Set("data", dm))
+		_, err = conn.Execute(From(tablename).Insert(), toolkit.M{}.Set("data", dm))
 	}
 	if err == nil {
 		dm.PostSave()
@@ -95,7 +94,7 @@ func Update(conn IConnection, dm IDataModel) error {
 	tablename := dm.TableName()
 	filter := GenerateFilterFromDataModel(dm)
 	dm.PreSave()
-	_, err := conn.NewQuery().From(tablename).Where(filter).Update().Execute(toolkit.M{}.Set("data", dm))
+	_, err := conn.Execute(From(tablename).Where(filter).Update(), toolkit.M{}.Set("data", dm))
 	if err != nil {
 		dm.PostSave()
 	}
@@ -105,7 +104,7 @@ func Update(conn IConnection, dm IDataModel) error {
 func Delete(conn IConnection, dm IDataModel) error {
 	tablename := dm.TableName()
 	filter := GenerateFilterFromDataModel(dm)
-	_, err := conn.NewQuery().From(tablename).Where(filter).Delete().Execute(nil)
+	_, err := conn.Execute(From(tablename).Where(filter).Delete(), nil)
 	return err
 }
 

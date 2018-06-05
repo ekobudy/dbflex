@@ -2,6 +2,7 @@ package mysql
 
 import (
 	"database/sql"
+	"strings"
 
 	"github.com/eaciit/dbflex"
 	"github.com/eaciit/toolkit"
@@ -19,6 +20,7 @@ type Connection struct {
 func init() {
 	dbflex.RegisterDriver("mysql", func(si *dbflex.ServerInfo) dbflex.IConnection {
 		c := new(Connection)
+		c.SetThis(c)
 		c.ServerInfo = *si
 		return c
 	})
@@ -29,6 +31,16 @@ func (c *Connection) Connect() error {
 	sqlconnstring := toolkit.Sprintf("tcp(%s)/%s", c.Host, c.Database)
 	if c.User != "" {
 		sqlconnstring = toolkit.Sprintf("%s:%s@%s", c.User, c.Password, sqlconnstring)
+	}
+	configs := strings.Join(func() []string {
+		var out []string
+		for k, v := range c.Config {
+			out = append(out, toolkit.Sprintf("%s=%s", k, v))
+		}
+		return out
+	}(), "&")
+	if configs != "" {
+		sqlconnstring = sqlconnstring + "?" + configs
 	}
 	db, err := sql.Open("mysql", sqlconnstring)
 	c.db = db

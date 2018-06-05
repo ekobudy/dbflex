@@ -56,6 +56,12 @@ func (c *Cursor) Count() int {
 }
 
 func (c *Cursor) Fetchs(result interface{}, n int) error {
+	defer func() {
+		if c.CloseAfterFetch() {
+			c.Close()
+		}
+	}()
+
 	if c.mgoiter == nil {
 		return toolkit.Error("Cursor is not yet properly initialized")
 	}
@@ -87,10 +93,7 @@ func (c *Cursor) Fetchs(result interface{}, n int) error {
 		reflect.ValueOf(result).Elem().Set(ivs)
 	}
 
-	if c.CloseAfterFetch() {
-		c.Close()
-	}
-
+	toolkit.Printf("Error is nil")
 	return nil
 }
 

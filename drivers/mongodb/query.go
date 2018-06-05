@@ -19,21 +19,15 @@ type Query struct {
 	prepared bool
 }
 
-func (q *Query) Reset() df.IQuery {
-	q.QueryBase.Reset()
-	q.prepared = false
-	return q
-}
-
 func (q *Query) BuildCommand() (interface{}, error) {
-	tablenames := q.GetConfig("tablenames", []string{}).([]string)
-	if len(tablenames) == 0 {
+	tablename := q.Config(dbflex.ConfigKeyTableName, "").(string)
+	if tablename == "" {
 		return nil, toolkit.Errorf("Table must be specified")
 	}
-	parts := q.GetConfig(df.ConfigKeyGroupedQueryItems, df.GroupedQueryItems{}).(df.GroupedQueryItems)
+	parts := q.Config(df.ConfigKeyGroupedQueryItems, df.GroupedQueryItems{}).(df.GroupedQueryItems)
 
 	//data, hasData := input["data"]
-	where := q.GetConfig(df.ConfigKeyWhere, M{}).(M)
+	where := q.Config(df.ConfigKeyWhere, M{}).(M)
 	//hasWhere := where != nil
 
 	cmd := ""
@@ -42,7 +36,7 @@ func (q *Query) BuildCommand() (interface{}, error) {
 		if fields == "" {
 			fields = "*"
 		}
-		cmd = toolkit.Sprintf("select %s", fields) + " from " + tablenames[0]
+		cmd = toolkit.Sprintf("select %s", fields) + " from " + tablename
 
 		if items, ok := parts[df.QueryTake]; ok {
 			cmd += toolkit.Sprintf("limit %d", items[0].Value.(int))
@@ -80,9 +74,9 @@ func (q *Query) BuildCommand() (interface{}, error) {
 				}
 			*/
 			//INSERT INTO table1 (ID, FullName, Email, Enable) VALUES (10, 'e10', 'e10', '1');
-			//cmd = "insert into " + tablenames[0] + " (" + strings.Join(fieldnames, ",") + ") values (" + strings.Join(sqlformats, ",") + ")"
+			//cmd = "insert into " + tablename + " (" + strings.Join(fieldnames, ",") + ") values (" + strings.Join(sqlformats, ",") + ")"
 			q.SetConfig("fields", items[0].Value.([]string))
-			cmd = "insert into " + tablenames[0] + " ({{fieldnames}}) values({{fieldvalues}})"
+			cmd = "insert into " + tablename + " ({{fieldnames}}) values({{fieldvalues}})"
 		} else if items, ok = parts[df.QueryUpdate]; ok {
 			/*
 				if !hasData {
@@ -103,11 +97,11 @@ func (q *Query) BuildCommand() (interface{}, error) {
 					}
 				}
 			*/
-			//cmd = "update " + tablenames[0] + " set " + strings.Join(updatedFields, ",")
+			//cmd = "update " + tablename + " set " + strings.Join(updatedFields, ",")
 			q.SetConfig("fields", items[0].Value.([]string))
-			cmd = "update " + tablenames[0] + " set {{updatedfields}}"
+			cmd = "update " + tablename + " set {{updatedfields}}"
 		} else if items, ok = parts[df.QueryDelete]; ok {
-			cmd = "delete from " + tablenames[0]
+			cmd = "delete from " + tablename
 		}
 		if where != nil {
 			//cmd += " where " + where
@@ -178,12 +172,11 @@ func (q *Query) BuildFilter(f *df.Filter) (interface{}, error) {
 }
 
 func (q *Query) Cursor(m M) df.ICursor {
-	q.Prepare()
 	cursor := new(Cursor)
 	cursor.SetThis(cursor)
 
-	tablenames := q.Config(df.ConfigKeyTableNames, []string{}).([]string)
-	coll := q.db.C(tablenames[0])
+	tablename := q.Config(df.ConfigKeyTableName, "").(string)
+	coll := q.db.C(tablename)
 
 	parts := q.Config(df.ConfigKeyGroupedQueryItems, df.GroupedQueryItems{}).(df.GroupedQueryItems)
 	where := q.Config(df.ConfigKeyWhere, M{}).(M)
@@ -192,15 +185,17 @@ func (q *Query) Cursor(m M) df.ICursor {
 	aggrs, hasAggr := parts[df.QueryAggr]
 	groupby, hasGroup := parts[df.QueryGroup]
 
-	cq := new(Query)
-	cq.SetThis(cq)
-	cq.db = q.db
-	cursor.SetCountQuery(cq)
-	cq.Aggr(dbflex.NewAggrItem("Count", df.AggrCount, ""))
-	cq.From(tablenames[0])
-	if f, ok := parts[dbflex.QueryWhere]; ok {
-		cq.Where(f[0].Value.(*dbflex.Filter))
-	}
+	/*
+		countCmd := new(Comma)
+		cq.SetThis(cq)
+		cq.db = q.db
+		cursor.SetCountQuery(cq)
+		cq.Aggr(dbflex.NewAggrItem("Count", df.AggrCount, ""))
+		cq.From(tablename)
+		if f, ok := parts[dbflex.QueryWhere]; ok {
+			cq.Where(f[0].Value.(*dbflex.Filter))
+		}
+	*/
 
 	if hasAggr {
 		pipes := []M{}
@@ -264,17 +259,16 @@ func (q *Query) Cursor(m M) df.ICursor {
 }
 
 func (q *Query) Execute(m M) (interface{}, error) {
-	q.Prepare()
-
-	tablenames := q.Config(df.ConfigKeyTableNames, []string{}).([]string)
-	coll := q.db.C(tablenames[0])
+	tablename := q.Config(df.ConfigKeyTableName, "").(string)
+	coll := q.db.C(tablename)
 	data := m.Get("data")
 
 	parts := q.Config(df.ConfigKeyGroupedQueryItems, df.GroupedQueryItems{}).(df.GroupedQueryItems)
 	where := q.Config(df.ConfigKeyWhere, M{}).(M)
 	hasWhere := where != nil
 
-	switch ct := q.CommandType(); ct {
+	ct := q.Config(df.ConfigKeyCommandType, "N/A")
+	switch ct {
 	case df.QueryInsert:
 		return nil, coll.Insert(data)
 

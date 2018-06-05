@@ -19,7 +19,7 @@ type Query struct {
 
 func (q *Query) Templates() map[string]string {
 	return map[string]string{
-		string(dbflex.QuerySelect): "SELECT {{.FIELDS}} FROM {{." + dbflex.ConfigKeyTableNames + "}} " +
+		string(dbflex.QuerySelect): "SELECT {{.FIELDS}} FROM {{." + dbflex.ConfigKeyTableName + "}} " +
 			"{{." + dbflex.QueryWhere + "}} " +
 			"{{." + dbflex.QueryOrder + "}} " +
 			"{{." + dbflex.QueryGroup + "}} " +
@@ -30,11 +30,11 @@ func (q *Query) Templates() map[string]string {
 		dbflex.QuerySkip:  "OFFSET {{." + dbflex.QuerySkip + "}}",
 		dbflex.QueryGroup: "GROUP BY {{." + dbflex.QueryGroup + "}}",
 		dbflex.QueryOrder: "ORDER BY {{." + dbflex.QueryOrder + "}}",
-		dbflex.QueryInsert: "INSERT INTO {{." + dbflex.ConfigKeyTableNames + "}} " +
+		dbflex.QueryInsert: "INSERT INTO {{." + dbflex.ConfigKeyTableName + "}} " +
 			"({{.FIELDS}}) VALUES ({{.VALUES}})",
-		dbflex.QueryUpdate: "UPDATE {{." + dbflex.ConfigKeyTableNames + "}} " +
+		dbflex.QueryUpdate: "UPDATE {{." + dbflex.ConfigKeyTableName + "}} " +
 			"SET {{.FIELDVALUES}} {{." + dbflex.QueryWhere + "}}",
-		dbflex.QueryDelete: "DELETE FROM {{." + dbflex.ConfigKeyTableNames + "}} " +
+		dbflex.QueryDelete: "DELETE FROM {{." + dbflex.ConfigKeyTableName + "}} " +
 			"{{." + dbflex.QueryWhere + "}}",
 		dbflex.AggrMax:         "MAX({{.FIELD}})",
 		dbflex.AggrMin:         "MIN({{.FIELD}})",
@@ -45,9 +45,12 @@ func (q *Query) Templates() map[string]string {
 }
 
 func (q *Query) buildCommandTemplate(data toolkit.M) (string, error) {
-	cmdType := q.CommandType()
+	cmdType, ok := q.Config(dbflex.ConfigKeyCommandType, dbflex.QuerySelect).(string)
+	if !ok {
+		return "", toolkit.Errorf("Operation is not known. current operation is %s", cmdType)
+	}
 	commands := q.Templates()
-	templateTxt := commands[string(q.CommandType())]
+	templateTxt := commands[string(cmdType)]
 
 	if cmdType == dbflex.QuerySelect {
 		if data.Has(dbflex.QueryWhere) {
@@ -216,27 +219,29 @@ func (q *Query) BuildFilter(f *dbflex.Filter) (interface{}, error) {
 }
 
 func (q *Query) BuildCommand() (interface{}, error) {
-	parts := q.GetConfig(dbflex.ConfigKeyGroupedQueryItems, dbflex.GroupedQueryItems{}).(dbflex.GroupedQueryItems)
-	if q.CommandType() == dbflex.QuerySQL {
+	parts := q.Config(dbflex.ConfigKeyGroupedQueryItems, dbflex.GroupedQueryItems{}).(dbflex.GroupedQueryItems)
+
+	ct := q.Config(dbflex.ConfigKeyCommandType, "")
+	if ct == dbflex.QuerySQL {
 		items := parts[dbflex.QuerySQL]
 		return items[0].Value.(string), nil
 	}
 
 	commandData := toolkit.M{}
-	tablenames := q.GetConfig(dbflex.ConfigKeyTableNames, []string{}).([]string)
-	if len(tablenames) == 0 {
+	tablename := q.Config(dbflex.ConfigKeyTableName, "").(string)
+	if len(tablename) == 0 {
 		return nil, toolkit.Errorf("Table must be specified")
 	}
-	commandData.Set(dbflex.ConfigKeyTableNames, tablenames[0])
+	commandData.Set(dbflex.ConfigKeyTableName, tablename)
 
-	where := q.GetConfig(dbflex.ConfigKeyWhere, "").(string)
+	where := q.Config(dbflex.ConfigKeyWhere, "").(string)
 	if strings.Trim(where, " ") == "" {
 		commandData.Set(dbflex.QueryWhere, "")
 	} else {
 		commandData.Set(dbflex.QueryWhere, "WHERE "+where)
 	}
 
-	switch q.CommandType() {
+	switch ct {
 	case dbflex.QuerySelect:
 		if items, ok := parts[dbflex.QuerySelect]; ok {
 			commandData.Set("fields", items[0].Value.([]string))
@@ -334,6 +339,8 @@ func (q *Query) BuildCommand() (interface{}, error) {
 	}
 
 	cmdTxt, err := q.buildCommandTemplate(commandData)
+
+	//toolkit.Printfn("Command: %s", cmdTxt)
 	return cmdTxt, err
 }
 
@@ -357,11 +364,12 @@ func ParseSQLMetadata(o interface{}) ([]string, []reflect.Type, []interface{}, [
 			f := r.Field(fieldIdx)
 			ft := t.Field(fieldIdx)
 			v := f.Interface()
-			fieldname := ft.Tag.Get("json")
-			if fieldname == "" {
-				fieldname = ft.Name
+			sqlname, ok := ft.Tag.Lookup("sqlname")
+			if ok && sqlname != "" {
+				names = append(names, sqlname)
+			} else {
+				names = append(names, ft.Name)
 			}
-			names = append(names, ft.Name)
 			types = append(types, ft.Type)
 			values = append(values, v)
 			sqlnames = append(sqlnames, sqlFormat(v))
@@ -396,7 +404,7 @@ func sqlFormat(v interface{}) string {
 	} else if _, ok = v.(float64); ok {
 		return toolkit.Sprintf("%f", v)
 	} else if _, ok = v.(time.Time); ok {
-		return toolkit.Date2String(v.(time.Time), "yyyy-MM-dd hh:mm:ss")
+		return toolkit.Date2String(v.(time.Time), "'yyyy-MM-dd hh:mm:ss'")
 	} else if b, ok := v.(bool); ok {
 		if b {
 			return "1"
