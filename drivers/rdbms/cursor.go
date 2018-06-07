@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/eaciit/toolkit"
@@ -13,9 +12,10 @@ import (
 )
 
 type IRdbmsCursor interface {
-	Serialize(interface{}) error
-	SerializeField(string, interface{}) (interface{}, error)
-	GetValueType([]byte) reflect.Type
+	SerializeFieldType(string, reflect.Type, interface{}) (interface{}, error)
+	//Serialize(interface{}) error
+	//SerializeField(string, interface{}) (interface{}, error)
+	//GetValueType([]byte) reflect.Type
 }
 
 type Cursor struct {
@@ -83,39 +83,21 @@ func (c *Cursor) Scan() error {
 	return c.fetcher.Scan(c.valuesPtr...)
 }
 
-func (c *Cursor) SerializeField(name string, value interface{}) (interface{}, error) {
+func (c *Cursor) SerializeFieldType(name string, dtype reflect.Type, value interface{}) (interface{}, error) {
+	return nil, toolkit.Error("SerializeFieldType is not yet properlhy implemented")
+}
+
+func (c *Cursor) serializeField(name string, value interface{}) (interface{}, error) {
 	for k, dtype := range c.dataTypeList {
 		if strings.ToLower(k) == strings.ToLower(name) {
-			dtypestr := dtype.(reflect.Type).String()
-			switch dtypestr {
-			case "time.Time":
-				return toolkit.ToDate(value.(string), "yyyy-MM-dd hh:mm:ss"), nil
-			case "int", "int32", "int64":
-				v, e := strconv.Atoi(toolkit.ToString(value))
-				if e != nil {
-					return int(0), toolkit.Errorf("%s=%v can't be serialised to int", name, value)
-				}
-				return v, nil
-			case "float", "float32", "float64":
-				val, e := strconv.ParseFloat(toolkit.ToString(value), 64)
-				if e != nil {
-					return float64(0), toolkit.Errorf("%s=%v can't be serialised to float", name, value)
-				} else {
-					return val, nil
-				}
-			case "bool":
-				valstr := toolkit.ToString(value)
-				return (valstr == "1" || valstr == "true"), nil
-			default:
-				return toolkit.ToString(value), nil
-			}
+			return c.this().(IRdbmsCursor).SerializeFieldType(name, dtype.(reflect.Type), value)
 		}
 	}
 
 	return nil, toolkit.Errorf("field or attribute %s could not be found", name)
 }
 
-func (c *Cursor) Serialize(dest interface{}) error {
+func (c *Cursor) serialize(dest interface{}) error {
 	var err error
 	mobj := toolkit.M{}
 	toolkit.Serde(dest, &mobj, "")
@@ -131,9 +113,8 @@ func (c *Cursor) Serialize(dest interface{}) error {
 
 	for k, v := range c.m {
 		var vtr interface{}
-		if vtr, err = c.this().(IRdbmsCursor).
-			SerializeField(k,
-				string(c.values[toolkit.ToInt(v, toolkit.RoundingAuto)].([]byte))); err != nil {
+		if vtr, err = c.serializeField(k,
+			string(c.values[toolkit.ToInt(v, toolkit.RoundingAuto)].([]byte))); err != nil {
 			return err
 		} else {
 			mobj.Set(k, vtr)
@@ -147,7 +128,7 @@ func (c *Cursor) Serialize(dest interface{}) error {
 	return nil
 }
 
-func (c *Cursor) GetDataTypeString(name string) string {
+func (c *Cursor) getDataTypeString(name string) string {
 	if c.dataTypeList == nil {
 		c.dataTypeList = toolkit.M{}
 	}
@@ -166,7 +147,7 @@ func (c *Cursor) Fetch(obj interface{}) error {
 	}
 	c.getTypeList(obj)
 	//toolkit.Printfn("TypeList: %s", toolkit.JsonString(c.dataTypeList))
-	err = c.this().(IRdbmsCursor).Serialize(obj)
+	err = c.serialize(obj)
 	if err != nil {
 		return err
 	}
@@ -199,7 +180,7 @@ func (c *Cursor) Fetchs(obj interface{}, n int) error {
 			}
 		} else {
 			mobj := toolkit.M{}
-			err = c.this().(IRdbmsCursor).Serialize(&mobj)
+			err = c.serialize(&mobj)
 			if err != nil {
 				return err
 			}
@@ -236,13 +217,13 @@ func (c *Cursor) getTypeList(obj interface{}) {
 		for k, v := range c.m {
 			vindex := v.(int)
 			vbytes := c.values[vindex].([]byte)
-			vtype := c.this().(IRdbmsCursor).GetValueType(vbytes)
+			vtype := c.getValueType(vbytes)
 			c.dataTypeList.Set(k, vtype)
 		}
 	}
 }
 
-func (c *Cursor) GetValueType(bs []byte) reflect.Type {
+func (c *Cursor) getValueType(bs []byte) reflect.Type {
 	var vtype reflect.Type
 	value := string(bs)
 

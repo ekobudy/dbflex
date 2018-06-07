@@ -176,13 +176,11 @@ func (crud *CRUD) RunTest() {
 		defer close(c)
 
 		crud.conn = c
-		/*
-			crud.clear()
-			crud.insert()
-			crud.populate()
-			crud.delete()
-			crud.update()
-		*/
+		crud.clear()
+		crud.insert()
+		crud.populate()
+		crud.delete()
+		crud.update()
 		crud.aggregate()
 	})
 
