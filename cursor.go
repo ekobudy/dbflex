@@ -19,8 +19,11 @@ type ICursor interface {
 	SetCountCommand(ICommand)
 	CountCommand() ICommand
 
-	Query() IQuery
-	SetQuery(IQuery)
+	Connection() IConnection
+	SetConnection(IConnection)
+
+	ConfigRef(key string, def interface{}, out interface{})
+	Set(key string, value interface{})
 }
 
 type CursorBase struct {
@@ -29,7 +32,9 @@ type CursorBase struct {
 
 	self         ICursor
 	countCommand ICommand
-	query        IQuery
+	conn         IConnection
+
+	config toolkit.M
 }
 
 func (b *CursorBase) SetError(err error) {
@@ -40,12 +45,26 @@ func (b *CursorBase) Error() error {
 	return b.err
 }
 
-func (b *CursorBase) Query() IQuery {
-	return b.query
+func (b *CursorBase) Connection() IConnection {
+	return b.conn
 }
 
-func (b *CursorBase) SetQuery(q IQuery) {
-	b.query = q
+func (b *CursorBase) ConfigRef(key string, def, out interface{}) {
+	if b.config == nil {
+		b.config = toolkit.M{}
+	}
+	b.config.GetRef(key, def, out)
+}
+
+func (b *CursorBase) Set(key string, value interface{}) {
+	if b.config == nil {
+		b.config = toolkit.M{}
+	}
+	b.config.Set(key, value)
+}
+
+func (b *CursorBase) SetConnection(conn IConnection) {
+	b.conn = conn
 }
 
 func (b *CursorBase) this() ICursor {
@@ -83,13 +102,13 @@ func (b *CursorBase) Count() int {
 		Count int
 	}{}
 
-	if b.query == nil {
-		b.SetError(toolkit.Errorf("query object is not defined"))
+	if b.conn == nil {
+		b.SetError(toolkit.Errorf("connection object is not defined"))
 		return 0
 	}
 
 	//err := b.countCommand.Cursor(nil).Fetch(&recordcount)
-	err := b.query.Connection().Cursor(b.CountCommand(), nil).Fetch(&recordcount)
+	err := b.conn.Cursor(b.CountCommand(), nil).Fetch(&recordcount)
 	if err != nil {
 		b.SetError(toolkit.Errorf("unable to get count. %s", err.Error()))
 		return 0

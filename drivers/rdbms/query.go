@@ -28,7 +28,7 @@ func (q *Query) Templates() map[string]string {
 		//dbflex.QueryWhere: "{{." + dbflex.QueryWhere + "}}",
 		dbflex.QueryTake:  "LIMIT {{." + dbflex.QueryTake + "}}",
 		dbflex.QuerySkip:  "OFFSET {{." + dbflex.QuerySkip + "}}",
-		dbflex.QueryGroup: "GROUP BY {{." + dbflex.QueryGroup + "}}",
+		dbflex.QueryGroup: "{{." + dbflex.QueryGroup + "}}",
 		dbflex.QueryOrder: "ORDER BY {{." + dbflex.QueryOrder + "}}",
 		dbflex.QueryInsert: "INSERT INTO {{." + dbflex.ConfigKeyTableName + "}} " +
 			"({{.FIELDS}}) VALUES ({{.VALUES}})",
@@ -57,7 +57,7 @@ func (q *Query) buildCommandTemplate(data toolkit.M) (string, error) {
 			data[dbflex.QueryWhere] = data[dbflex.QueryWhere]
 		}
 
-		fields := q.Config("fields", []string{}).([]string)
+		fields := data.Get("fields", []string{}).([]string)
 		orderby := data.Get(dbflex.QueryOrder, "").(string)
 		groupby := data.Get(dbflex.QueryGroup, "").(string)
 		take := data.Get(dbflex.QueryTake, 0).(int)
@@ -154,7 +154,12 @@ func (q *Query) BuildFilter(f *dbflex.Filter) (interface{}, error) {
 		ret = strings.Join(txts, toolkit.IfEq(f.Op, dbflex.OpAnd, " and ", " or ").(string))
 
 	case dbflex.OpContains:
-		ret = f.Field + " like '%" + f.Value.(string) + "%'"
+		contains := f.Value.([]string)
+		rets := []string{}
+		for _, contain := range contains {
+			rets = append(rets, f.Field+" like '%"+contain+"%'")
+		}
+		ret = strings.Join(rets, " or ")
 
 	case dbflex.OpEndWith:
 		ret = f.Field + " like '" + f.Value.(string) + "%'"
@@ -266,7 +271,7 @@ func (q *Query) BuildCommand() (interface{}, error) {
 					}
 				}
 			}
-			if len(fields) == 0 {
+			if len(fields) > 0 {
 				commandData.Set(dbflex.QueryOrder, strings.Join(fields, ","))
 			}
 		} else {
@@ -301,12 +306,12 @@ func (q *Query) BuildCommand() (interface{}, error) {
 					fields = append(fields, field)
 				}
 			}
-			commandData.Set(string(dbflex.QuerySelect), strings.Join(fields, ","))
+			commandData.Set("fields", fields)
 		}
 
 		if groupby, ok := parts[dbflex.QueryGroup]; ok {
 			groupbyStr := func() string {
-				s := "group by "
+				s := "GROUP BY "
 				fields := []string{}
 				for _, v := range groupby {
 					gs := v.Value.([]string)
@@ -315,6 +320,9 @@ func (q *Query) BuildCommand() (interface{}, error) {
 							fields = append(fields, g)
 						}
 					}
+				}
+				if len(fields) == 0 {
+					return ""
 				}
 				return s + strings.Join(fields, ",")
 			}()
@@ -351,7 +359,7 @@ func ParseSQLMetadata(o interface{}) ([]string, []reflect.Type, []interface{}, [
 	values := []interface{}{}
 	sqlnames := []string{}
 
-	if toolkit.IsNilOrEmpty(o) {
+	if toolkit.IsNil(o) {
 		return names, types, values, sqlnames
 	}
 

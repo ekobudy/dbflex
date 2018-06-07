@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/eaciit/dbflex"
-
 	"github.com/eaciit/toolkit"
 	mgo "gopkg.in/mgo.v2"
 
@@ -20,95 +18,7 @@ type Query struct {
 }
 
 func (q *Query) BuildCommand() (interface{}, error) {
-	tablename := q.Config(dbflex.ConfigKeyTableName, "").(string)
-	if tablename == "" {
-		return nil, toolkit.Errorf("Table must be specified")
-	}
-	parts := q.Config(df.ConfigKeyGroupedQueryItems, df.GroupedQueryItems{}).(df.GroupedQueryItems)
-
-	//data, hasData := input["data"]
-	where := q.Config(df.ConfigKeyWhere, M{}).(M)
-	//hasWhere := where != nil
-
-	cmd := ""
-	if items, ok := parts[df.QuerySelect]; ok {
-		fields := strings.Join(items[0].Value.([]string), ",")
-		if fields == "" {
-			fields = "*"
-		}
-		cmd = toolkit.Sprintf("select %s", fields) + " from " + tablename
-
-		if items, ok := parts[df.QueryTake]; ok {
-			cmd += toolkit.Sprintf("limit %d", items[0].Value.(int))
-		}
-
-		if items, ok := parts[df.QuerySkip]; ok {
-			cmd += toolkit.Sprintf("offset %d", items[0].Value.(int))
-		}
-
-		if items, ok := parts[df.QueryOrder]; ok {
-			fields := []string{}
-			for _, v := range items {
-				orderfields := v.Value.([]string)
-				for _, orderfield := range orderfields {
-					if !strings.HasPrefix(orderfield, "-") {
-						fields = append(fields, strings.TrimSpace(orderfield))
-					} else {
-						orderfield = orderfield[1:]
-						fields = append(fields, strings.TrimSpace(orderfield)+" desc")
-					}
-				}
-			}
-			if len(fields) == 0 {
-				cmd += "order by " + strings.Join(fields, ",")
-			}
-		}
-	} else {
-		//var data interface{}
-		//hasData := false
-		//fieldnames, _, _, sqlformats := ParseSQLMetadata(data)
-		if items, ok = parts[df.QueryInsert]; ok {
-			/*
-				if !hasData {
-					return nil, toolkit.Errorf("Non select command should have data")
-				}
-			*/
-			//INSERT INTO table1 (ID, FullName, Email, Enable) VALUES (10, 'e10', 'e10', '1');
-			//cmd = "insert into " + tablename + " (" + strings.Join(fieldnames, ",") + ") values (" + strings.Join(sqlformats, ",") + ")"
-			q.SetConfig("fields", items[0].Value.([]string))
-			cmd = "insert into " + tablename + " ({{fieldnames}}) values({{fieldvalues}})"
-		} else if items, ok = parts[df.QueryUpdate]; ok {
-			/*
-				if !hasData {
-					return nil, toolkit.Errorf("Non select command should have data")
-				}
-				requestedfields := items[0].Value.([]string)
-				updatedFields := []string{}
-				for i, v := range fieldnames {
-					if len(requestedfields) == 0 {
-						updatedFields = append(updatedFields, toolkit.Sprintf("%s=%s", v, sqlformats[i]))
-					} else {
-						lowerv := strings.ToLower(v)
-						for _, f := range requestedfields {
-							if strings.ToLower(f) == lowerv {
-								updatedFields = append(updatedFields, toolkit.Sprintf("%s=%s", v, sqlformats[i]))
-							}
-						}
-					}
-				}
-			*/
-			//cmd = "update " + tablename + " set " + strings.Join(updatedFields, ",")
-			q.SetConfig("fields", items[0].Value.([]string))
-			cmd = "update " + tablename + " set {{updatedfields}}"
-		} else if items, ok = parts[df.QueryDelete]; ok {
-			cmd = "delete from " + tablename
-		}
-		if where != nil {
-			//cmd += " where " + where
-		}
-	}
-	//toolkit.Printf("Command is: %s", cmd)
-	return cmd, nil
+	return nil, nil
 }
 
 func (q *Query) BuildFilter(f *df.Filter) (interface{}, error) {
@@ -185,18 +95,6 @@ func (q *Query) Cursor(m M) df.ICursor {
 	aggrs, hasAggr := parts[df.QueryAggr]
 	groupby, hasGroup := parts[df.QueryGroup]
 
-	/*
-		countCmd := new(Comma)
-		cq.SetThis(cq)
-		cq.db = q.db
-		cursor.SetCountQuery(cq)
-		cq.Aggr(dbflex.NewAggrItem("Count", df.AggrCount, ""))
-		cq.From(tablename)
-		if f, ok := parts[dbflex.QueryWhere]; ok {
-			cq.Where(f[0].Value.(*dbflex.Filter))
-		}
-	*/
-
 	if hasAggr {
 		pipes := []M{}
 		items := aggrs[0].Value.([]*df.AggrItem)
@@ -205,10 +103,10 @@ func (q *Query) Cursor(m M) df.ICursor {
 			if item.Op == df.AggrCount {
 				aggrExpression.Set(item.Alias, M{}.Set(string(df.AggrSum), 1))
 			} else {
-				aggrExpression.Set(item.Alias, M{}.Set(string(item.Op), item.Field))
+				aggrExpression.Set(item.Alias, M{}.Set(string(item.Op), "$"+item.Field))
 			}
 		}
-		if hasGroup {
+		if !hasGroup {
 			aggrExpression.Set("_id", "")
 		} else {
 			groups := func() M {

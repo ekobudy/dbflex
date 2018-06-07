@@ -114,7 +114,7 @@ func NewCRUD(t *testing.T, ctxt string, count int, config toolkit.M) *CRUD {
 
 		config.Set("aggrfilter", dbflex.Eq("grade", 3))
 		config.Set("aggritems", []*dbflex.AggrItem{dbflex.Sum("salary")})
-		config.Set("aggrbuffer", aggrbuffers)
+		config.Set("aggrbuffer", &aggrbuffers)
 		config.Set("aggrvalidator", func() error {
 			bufferTotal := 0
 			if len(aggrbuffers) > 0 {
@@ -176,14 +176,14 @@ func (crud *CRUD) RunTest() {
 		defer close(c)
 
 		crud.conn = c
-		crud.clear()
-		crud.insert()
-		crud.populate()
-		crud.delete()
-		crud.update()
 		/*
-			crud.aggregate()
+			crud.clear()
+			crud.insert()
+			crud.populate()
+			crud.delete()
+			crud.update()
 		*/
+		crud.aggregate()
 	})
 
 	return
@@ -199,18 +199,23 @@ func (crud *CRUD) clear() {
 
 func (crud *CRUD) insert() {
 	Convey("Insert data", func() {
-		var err error
 		//isErr := false
-		for i := 0; i < crud.count; i++ {
-			_, err = crud.conn.Execute(dbflex.From(crud.TableName).
-				Insert(), toolkit.M{}.Set("data", crud.NewData(i)))
-			if err != nil {
-				//isErr = true
-				break
+		query, err := crud.conn.Prepare(dbflex.From(crud.TableName).Insert())
+		Convey("Prepare insert command", func() {
+			So(err, ShouldBeNil)
+		})
+
+		Convey("Iterating insert command", func() {
+			var err error
+			for i := 0; i < crud.count; i++ {
+				_, err = query.Execute(toolkit.M{}.Set("data", crud.NewData(i)))
+				if err != nil {
+					//isErr = true
+					break
+				}
 			}
-		}
-		//So(isErr, ShouldBeFalse)
-		So(err, ShouldBeNil)
+			So(err, ShouldBeNil)
+		})
 	})
 }
 
@@ -243,6 +248,75 @@ func (crud *CRUD) populate() {
 			Convey("Count result is OK", func() {
 				So(count, ShouldEqual, crud.count)
 			})
+		})
+
+		Convey("Get eq data", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.Eq("grade", 4))
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+			So(models[0].Grade, ShouldEqual, 4)
+		})
+
+		Convey("Get ne data", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.Ne("grade", 4))
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+			So(models[0].Grade, ShouldNotEqual, 4)
+
+		})
+
+		Convey("Get contains data - single", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.Contains("name", "535"))
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+			So((models)[0].Name, ShouldContainSubstring, "535")
+		})
+
+		Convey("Get contains data - plural", func() {
+			cmd := dbflex.From(crud.TableName).Select().
+				Where(dbflex.Contains("name", "535", "536")).
+				OrderBy("name")
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+
+			hash := toolkit.Sprintf("%s-%s",
+				models[0].Name[len(models[0].Name)-3:],
+				models[1].Name[len(models[0].Name)-3:])
+			So(hash, ShouldEqual, "535-536")
+		})
+
+		Convey("Get or data", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.Or(
+				dbflex.Contains("name", "535"), dbflex.Contains("name", "536"))).
+				OrderBy("name")
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+
+			hash := toolkit.Sprintf("%s-%s",
+				models[0].Name[len(models[0].Name)-3:],
+				models[1].Name[len(models[0].Name)-3:])
+			So(hash, ShouldEqual, "535-536")
+		})
+
+		Convey("Get and data - include gt", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.And(
+				dbflex.Eq("grade", 4), dbflex.Gt("salary", 2200))).
+				OrderBy("name")
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+
+			hash := toolkit.Sprintf("%d-%d", models[0].Grade, models[0].Salary)
+			So(hash, ShouldBeGreaterThan, "4-2200")
+		})
+
+		Convey("Get order data descending", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.Or(
+				dbflex.Contains("name", "535"), dbflex.Contains("name", "536"))).
+				OrderBy("-name")
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+
+			So(models[0].Name, ShouldContainSubstring, "536")
 		})
 	})
 }
@@ -313,11 +387,17 @@ func (crud *CRUD) aggregate() {
 		validator := crud.config.Get("aggrvalidator", func() error { return nil }).(func() error)
 
 		Convey("Execute aggregation", func() {
-			err := crud.conn.Cursor(dbflex.From(crud.TableName).
+			cursor := crud.conn.Cursor(dbflex.From(crud.TableName).
 				Where(where).GroupBy(aggrGroup...).
-				Aggr(aggrItems...), nil).
-				Fetchs(buffer, 0)
-			So(err, ShouldBeNil)
+				Aggr(aggrItems...), nil)
+			Convey("Cursor has no error", func() {
+				So(cursor.Error(), ShouldBeNil)
+			})
+
+			Convey("Fetch aggr cursor", func() {
+				err := cursor.Fetchs(buffer, 0)
+				So(err, ShouldBeNil)
+			})
 		})
 
 		Convey("Validate", func() {

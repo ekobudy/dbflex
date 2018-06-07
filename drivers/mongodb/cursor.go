@@ -92,8 +92,6 @@ func (c *Cursor) Fetchs(result interface{}, n int) error {
 		}
 		reflect.ValueOf(result).Elem().Set(ivs)
 	}
-
-	toolkit.Printf("Error is nil")
 	return nil
 }
 

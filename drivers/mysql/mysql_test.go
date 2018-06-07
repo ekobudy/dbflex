@@ -12,7 +12,7 @@ const (
 )
 
 func TestCRUD(t *testing.T) {
-	crud := testbase.NewCRUD(t, sqlconnectionstring, 10000, nil)
+	crud := testbase.NewCRUD(t, sqlconnectionstring, 1000, nil)
 	crud.Set("deletefilter", dbflex.Eq("id", "EMP-10"))
 	crud.RunTest()
 }

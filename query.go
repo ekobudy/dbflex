@@ -26,6 +26,7 @@ type IQuery interface {
 	SetConfig(string, interface{})
 	SetConfigM(toolkit.M)
 	Config(string, interface{}) interface{}
+	ConfigRef(string, interface{}, interface{})
 	DeleteConfig(...string)
 
 	Connection() IConnection
@@ -75,6 +76,11 @@ func (q *QueryBase) SetConfigM(in toolkit.M) {
 func (q *QueryBase) Config(key string, def interface{}) interface{} {
 	q.initConfig()
 	return q.config.Get(key, def)
+}
+
+func (q *QueryBase) ConfigRef(key string, def, out interface{}) {
+	q.initConfig()
+	q.config.Get(key, def, out)
 }
 
 func (q *QueryBase) DeleteConfig(deletedkeys ...string) {
@@ -170,116 +176,6 @@ func (b *QueryBase) BuildFilter(f *Filter) (interface{}, error) {
 	return nil, toolkit.Error("Build filter is not yet implemented")
 }
 
-/*
-func (b *QueryBase) Reset() IQuery {
-	b.items = []*QueryItem{}
-	return b.This()
-}
-
-func (b *QueryBase) Select(fields ...string) IQuery {
-	b.items = append(b.items, &QueryItem{QuerySelect, fields})
-	return b.This()
-}
-
-func (b *QueryBase) From(name string) IQuery {
-	b.items = append(b.items, &QueryItem{QueryFrom, name})
-	return b.This()
-}
-
-func (b *QueryBase) Where(f *Filter) IQuery {
-	b.items = append(b.items, &QueryItem{QueryWhere, f})
-	return b.This()
-}
-
-func (b *QueryBase) OrderBy(fields ...string) IQuery {
-	b.items = append(b.items, &QueryItem{QueryOrder, fields})
-	return b.This()
-}
-
-func (b *QueryBase) GroupBy(fields ...string) IQuery {
-	b.items = append(b.items, &QueryItem{QueryGroup, fields})
-	return b.This()
-}
-
-func (b *QueryBase) Aggr(aggritems ...*AggrItem) IQuery {
-	b.items = append(b.items, &QueryItem{QueryAggr, aggritems})
-	return b.This()
-}
-
-func (b *QueryBase) Insert(fields ...string) IQuery {
-	b.items = append(b.items, &QueryItem{QueryInsert, fields})
-	return b.This()
-}
-
-func (b *QueryBase) Update(fields ...string) IQuery {
-	b.items = append(b.items, &QueryItem{QueryUpdate, fields})
-	return b.This()
-}
-
-func (b *QueryBase) Delete() IQuery {
-	b.items = append(b.items, &QueryItem{QueryDelete, true})
-	return b.This()
-}
-
-func (b *QueryBase) Save() IQuery {
-	b.items = append(b.items, &QueryItem{QuerySave, true})
-	return b.This()
-}
-
-func (b *QueryBase) Take(n int) IQuery {
-	b.items = append(b.items, &QueryItem{QueryTake, n})
-	return b.This()
-}
-
-func (b *QueryBase) Skip(n int) IQuery {
-	b.items = append(b.items, &QueryItem{QuerySkip, n})
-	return b.This()
-}
-
-func (b *QueryBase) Command(command string, data interface{}) IQuery {
-	b.items = []*QueryItem{&QueryItem{QueryCommand, toolkit.M{}.Set("command", command).Set("data", data)}}
-	return b.This()
-}
-
-func (b *QueryBase) SQL(sql string) IQuery {
-	b.items = []*QueryItem{&QueryItem{QuerySQL, sql}}
-	return b.This()
-}
-
-func (b *QueryBase) Prepare() error {
-	if !b.prepared {
-		b.initConfig()
-		gqis := b.BuildGroupedQueryItems()
-		b.config.Set(ConfigKeyGroupedQueryItems, gqis)
-
-		tablenames := []string{}
-		if froms, ok := gqis[QueryFrom]; ok {
-			for _, v := range froms {
-				tablenames = append(tablenames, v.Value.(string))
-			}
-			b.config.Set(ConfigKeyTableName, tablenames)
-		}
-
-		filter, ok := gqis[QueryWhere]
-		if ok {
-			translatedFilter, err := b.This().BuildFilter(filter[0].Value.(*Filter))
-			if err != nil {
-				return err
-			}
-			b.config.Set(ConfigKeyWhere, translatedFilter)
-		}
-
-		cmd, err := b.This().BuildCommand()
-		if err != nil {
-			return err
-		}
-		b.config.Set(ConfigKeyCommand, cmd)
-		b.prepared = true
-	}
-	return nil
-}
-*/
-
 func (b *QueryBase) Cursor(in toolkit.M) ICursor {
 	c := new(CursorBase)
 	c.SetError(toolkit.Error("Cursor is not yet implemented"))
@@ -289,15 +185,3 @@ func (b *QueryBase) Cursor(in toolkit.M) ICursor {
 func (b *QueryBase) Execute(in toolkit.M) (interface{}, error) {
 	return nil, toolkit.Error("Execute is not yet implemented")
 }
-
-/*
-func (b *QueryBase) ExecCursor(in toolkit.M) ICursor {
-	c := new(CursorBase)
-	c.SetError(toolkit.Error("ExecCursor is not yet implemented"))
-	return c
-}
-
-func (b *QueryBase) ExecQuery(in toolkit.M) (interface{}, error) {
-	return nil, toolkit.Error("ExecQuery is not yet implemented")
-}
-*/

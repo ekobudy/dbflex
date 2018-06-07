@@ -124,7 +124,7 @@ func (c *Cursor) Serialize(dest interface{}) error {
 	if len(c.dataTypeList) == 0 {
 		for k, v := range mobj {
 			typeName := reflect.TypeOf(c.valuesPtr[toolkit.ToInt(v, toolkit.RoundingAuto)])
-			toolkit.Printfn("Type: %s", typeName)
+			//toolkit.Printfn("Type: %s", typeName)
 			c.dataTypeList.Set(k, typeName)
 		}
 	}
@@ -180,7 +180,7 @@ func (c *Cursor) Fetchs(obj interface{}, n int) error {
 	if c.dataTypeList == nil || len(c.dataTypeList) == 0 {
 		var single interface{}
 		if single, err = toolkit.GetEmptySliceElement(obj); err != nil {
-			return toolkit.Errorf("unable to get slice elemnt: %s", err.Error())
+			return toolkit.Errorf("unable to get slice element: %s", err.Error())
 		}
 		c.getTypeList(single)
 	}
@@ -231,7 +231,7 @@ func (c *Cursor) getTypeList(obj interface{}) {
 		c.dataTypeList.Set(name, fieldtypes[i])
 	}
 
-	//-- obj is not accepting, retrieve via fetcher
+	//-- obj is not accepted, retrieve via fetcher
 	if len(fieldnames) == 0 {
 		for k, v := range c.m {
 			vindex := v.(int)

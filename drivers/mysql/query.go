@@ -39,7 +39,6 @@ func (q *Query) Cursor(in toolkit.M) dbflex.ICursor {
 		cq.Where(filter.(*dbflex.Filter))
 	}
 	cursor.SetCountCommand(cq)
-	cursor.SetQuery(q)
 
 	rows, err := q.db.Query(cmdtxt)
 	if rows == nil {

@@ -111,8 +111,9 @@ func (b *ConnectionBase) Cursor(c ICommand, m toolkit.M) ICursor {
 		cursor.SetError(toolkit.Errorf("unable to prepare query. %s", err.Error()))
 		return cursor
 	}
-	q.SetConnection(b.This())
-	return q.Cursor(m)
+	cursor := q.Cursor(m)
+	cursor.SetConnection(b.This())
+	return cursor
 }
 
 type ServerInfo struct {
