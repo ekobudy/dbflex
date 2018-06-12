@@ -316,6 +316,38 @@ func (crud *CRUD) populate() {
 
 			So(models[0].Name, ShouldContainSubstring, "536")
 		})
+
+		Convey("Get data take", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.Eq("grade", 3)).
+				OrderBy("-name").Take(2)
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 0)
+			models := *(buffer.(*[]employeeModel))
+			dataLength := len(models)
+			grade3 := true
+			for _, model := range models {
+				if model.Grade != 3 {
+					grade3 = false
+				}
+			}
+			So(dataLength, ShouldEqual, 2)
+			So(grade3, ShouldBeTrue)
+		})
+
+		Convey("Get data partially", func() {
+			cmd := dbflex.From(crud.TableName).Select().Where(dbflex.Eq("grade", 3)).
+				OrderBy("-name")
+			crud.conn.Cursor(cmd, nil).Fetchs(buffer, 2)
+			models := *(buffer.(*[]employeeModel))
+			dataLength := len(models)
+			grade3 := true
+			for _, model := range models {
+				if model.Grade != 3 {
+					grade3 = false
+				}
+			}
+			So(dataLength, ShouldEqual, 2)
+			So(grade3, ShouldBeTrue)
+		})
 	})
 }
 

@@ -143,11 +143,13 @@ func (q *Query) Cursor(m M) df.ICursor {
 		}
 
 		if items, ok := parts[df.QuerySkip]; ok {
-			qry = qry.Skip(items[0].Value.(int))
+			skip := items[0].Value.(int)
+			qry = qry.Skip(skip)
 		}
 
 		if items, ok := parts[df.QueryTake]; ok {
-			qry = qry.Select(items[0].Value.(int))
+			take := items[0].Value.(int)
+			qry = qry.Limit(take)
 		}
 
 		cursor.mgocursor = qry
