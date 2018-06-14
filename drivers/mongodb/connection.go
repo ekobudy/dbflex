@@ -20,6 +20,7 @@ func init() {
 		c := new(Connection)
 		c.ServerInfo = *si
 		c.SetThis(c)
+		c.SetFieldNameTag("bson")
 		return c
 	})
 }
@@ -48,6 +49,13 @@ func (c *Connection) Connect() error {
 	}
 	c.mgosession = sess
 	return nil
+}
+
+func (c *Connection) State() string {
+	if c.mgosession != nil {
+		return dbflex.StateConnected
+	}
+	return dbflex.StateUnknown
 }
 
 func (c *Connection) NewQuery() dbflex.IQuery {

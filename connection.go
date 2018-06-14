@@ -15,6 +15,9 @@ const (
 	ObjTypeView      ObjTypeEnum = "view"
 	ObjTypeProcedure ObjTypeEnum = "procedure"
 	ObjTypeAll       ObjTypeEnum = "allobject"
+
+	StateConnected string = "connected"
+	StateUnknown          = ""
 )
 
 // IConnection provides interface for database connection
@@ -34,6 +37,9 @@ type IConnection interface {
 
 	SetThis(IConnection) IConnection
 	This() IConnection
+
+	SetFieldNameTag(string)
+	FieldNameTag() string
 }
 
 // ConnectionBase is base class to implement IConnection interface
@@ -41,6 +47,8 @@ type ConnectionBase struct {
 	ServerInfo
 
 	_this IConnection
+
+	fieldnameTag string
 }
 
 func (b *ConnectionBase) SetThis(t IConnection) IConnection {
@@ -56,11 +64,19 @@ func (b *ConnectionBase) This() IConnection {
 	}
 }
 
+func (b *ConnectionBase) SetFieldNameTag(name string) {
+	b.fieldnameTag = name
+}
+
+func (b *ConnectionBase) FieldNameTag() string {
+	return b.fieldnameTag
+}
+
 // Connect establish connection
 func (b *ConnectionBase) Connect() error {
 	return toolkit.Error("Connect method is not yet implemented. It should be called from a driver connection object")
 }
-func (b *ConnectionBase) State() string { return "" }
+func (b *ConnectionBase) State() string { return StateUnknown }
 func (b *ConnectionBase) Close()        {}
 func (b *ConnectionBase) NewQuery() IQuery {
 	return nil
@@ -80,6 +96,10 @@ func (b *ConnectionBase) DropTable(name string) error {
 
 func (b *ConnectionBase) Prepare(cmd ICommand) (IQuery, error) {
 	var dbCmd interface{}
+
+	if b.This().State() != StateConnected {
+		return nil, toolkit.Errorf("no valid connection")
+	}
 
 	q := b.This().NewQuery()
 	err := buildGroupedQueryItems(cmd, q)

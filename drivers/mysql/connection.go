@@ -47,6 +47,13 @@ func (c *Connection) Connect() error {
 	return err
 }
 
+func (c *Connection) State() string {
+	if c.db != nil {
+		return dbflex.StateConnected
+	}
+	return dbflex.StateUnknown
+}
+
 // Close database connection
 func (c *Connection) Close() {
 	if c.db != nil {

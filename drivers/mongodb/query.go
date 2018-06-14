@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/eaciit/dbflex"
+
 	"github.com/eaciit/toolkit"
 	mgo "gopkg.in/mgo.v2"
 
@@ -64,6 +66,12 @@ func (q *Query) BuildFilter(f *df.Filter) (interface{}, error) {
 		fm.Set(f.Field, M{}.Set("$lt", f.Value))
 	} else if f.Op == df.OpLte {
 		fm.Set(f.Field, M{}.Set("$lte", f.Value))
+	} else if f.Op == df.OpRange {
+		bfs := []*df.Filter{}
+		bfs = append(bfs, df.Gte(f.Field, f.Value.([]interface{})[0]))
+		bfs = append(bfs, df.Lte(f.Field, f.Value.([]interface{})[1]))
+		fand := dbflex.And(bfs...)
+		return q.BuildFilter(fand)
 	} else if f.Op == df.OpOr || f.Op == df.OpAnd {
 		bfs := []interface{}{}
 		fs := f.Items

@@ -217,6 +217,8 @@ func (q *Query) BuildFilter(f *dbflex.Filter) (interface{}, error) {
 		ret = strings.Join(items, " and ")
 
 	case dbflex.OpRange:
+		//ret = toolkit.Sprintf("%s >= %s and %s <= %s",
+		//	f.Field, sqlfmts[0], f.Field, sqlfmts[1])
 		ret = f.Field + " between " + sqlfmts[0] + " and " + sqlfmts[1]
 	}
 
