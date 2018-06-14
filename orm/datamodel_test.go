@@ -6,8 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/eaciit/dbflex"
-
 	"github.com/eaciit/toolkit"
 
 	. "github.com/eaciit/dbflex"
@@ -122,7 +120,7 @@ func TestReading(t *testing.T) {
 		Convey("Reading only intvalue between 101 and 200 - Filter", func() {
 			var models []*fakeModel
 			err := Gets(conn, new(fakeModel), &models, &QueryParam{
-				Where: dbflex.Range("intvalue", 101, 200),
+				Where: Range("intvalue", 101, 200),
 			})
 			Convey("No error", func() { So(err, ShouldBeNil) })
 			Convey("Data length > 0", func() { So(len(models), ShouldBeGreaterThan, 0) })
@@ -276,7 +274,7 @@ func TestSave(t *testing.T) {
 
 				Convey("Validate 2 - saved data shld be 11", func() {
 					var buffers []*fakeModel
-					_ = Gets(conn, new(fakeModel), &buffers, &QueryParam{Where: dbflex.Eq("title", "Saved data")})
+					_ = Gets(conn, new(fakeModel), &buffers, &QueryParam{Where: Eq("title", "Saved data")})
 					So(len(buffers), ShouldEqual, 11)
 				})
 			})
@@ -285,26 +283,28 @@ func TestSave(t *testing.T) {
 }
 
 func TestInsertUsingPooling(t *testing.T) {
-	pooling := dbflex.NewDbPooling(10, func() (dbflex.IConnection, error) {
-		conn, err := NewConnectionFromUri(connTxt, nil)
-		if err != nil {
-			return nil, err
-		}
+	Convey("Insert using ORM and connection pooling", t, func() {
+		hash := ""
+		pooling := NewDbPooling(10, func() (IConnection, error) {
+			conn, err := NewConnectionFromUri(connTxt, nil)
+			if err != nil {
+				return nil, err
+			}
 
-		err = conn.Connect()
-		if err != nil {
-			return nil, err
-		}
+			err = conn.Connect()
+			if err != nil {
+				return nil, err
+			}
 
-		return conn, nil
-	})
-	pooling.Timeout = 5 * time.Second
-	cmodel := make(chan *fakeModel)
-	defer pooling.Close()
+			return conn, nil
+		})
+		pooling.Timeout = 5 * time.Second
+		cmodel := make(chan *fakeModel)
+		defer pooling.Close()
 
-	//cout := make(chan string)
-	wg := new(sync.WaitGroup)
-	go func() {
+		//cout := make(chan string)
+		wg := new(sync.WaitGroup)
+
 		for wi := 0; wi < 20; wi++ {
 			go func() {
 				errors := []string{}
@@ -322,26 +322,38 @@ func TestInsertUsingPooling(t *testing.T) {
 							}
 
 							//--- give some delay yo ensure pooling queue process taken place
-							time.Sleep(time.Duration(toolkit.RandInt(10)) * time.Millisecond)
+							//time.Sleep(time.Duration(toolkit.RandInt(5)) * time.Millisecond)
 						}
 					}()
 				}
 				//cout <- strings.Join(errors, "\n")
 			}()
 		}
-	}()
 
-	for i := 0; i < 1000; i++ {
-		wg.Add(1)
-		fm := newFake()
-		fm.ID = toolkit.Sprintf("pooling-%d", i)
-		fm.Title = "This user is saved using DB Pool"
-		cmodel <- fm
-	}
-	close(cmodel)
+		for i := 0; i < 1000; i++ {
+			wg.Add(1)
+			fm := newFake()
+			fm.ID = toolkit.Sprintf("pooling-%d", i)
+			fm.Title = "This user is saved using DB Pool"
+			cmodel <- fm
+		}
+		close(cmodel)
 
-	wg.Wait()
+		wg.Wait()
+		So(hash, ShouldBeBlank)
+
+		Convey("Retrieving data after insert", func() {
+			var buffers []*fakeModel
+			err := Gets(conn, new(fakeModel), &buffers, &QueryParam{Where: Eq("title", "This user is saved using DB Pool")})
+			Convey("No error", func() { So(err, ShouldBeNil) })
+			Convey("Data length is 1000", func() { So(len(buffers), ShouldEqual, 1000) })
+		})
+	})
 }
+
+/*
+
+ */
 
 func TestClose(t *testing.T) {
 	conn.Close()

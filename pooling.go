@@ -49,17 +49,17 @@ func (p *DbPooling) Get() (*PoolItem, error) {
 			}
 		}
 
+		p.Lock()
 		if len(p.items) < p.size {
-			p.Lock()
 			pi, err := p.newItem()
 			if err != nil {
 				cerr <- err
 			}
 			p.items = append(p.items, pi)
 			pi.Use()
-			p.Unlock()
 			cpi <- pi
 		}
+		p.Unlock()
 
 		for done := false; !done; {
 			select {
@@ -79,6 +79,7 @@ func (p *DbPooling) Get() (*PoolItem, error) {
 
 	select {
 	case pi := <-cpi:
+		//toolkit.Printfn("Connection is used. Size: %d Count: %d", p.Size(), p.Count())
 		return pi, nil
 
 	case err := <-cerr:
