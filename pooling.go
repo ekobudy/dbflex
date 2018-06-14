@@ -140,3 +140,7 @@ func (pi *PoolItem) Use() {
 	pi.used = true
 	pi.Unlock()
 }
+
+func (pi *PoolItem) Connection() IConnection {
+	return pi.conn
+}

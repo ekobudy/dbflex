@@ -2,6 +2,7 @@ package orm
 
 import (
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -281,6 +282,65 @@ func TestSave(t *testing.T) {
 			})
 		})
 	})
+}
+
+func TestInsertUsingPooling(t *testing.T) {
+	pooling := dbflex.NewDbPooling(10, func() (dbflex.IConnection, error) {
+		conn, err := NewConnectionFromUri(connTxt, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		err = conn.Connect()
+		if err != nil {
+			return nil, err
+		}
+
+		return conn, nil
+	})
+	pooling.Timeout = 5 * time.Second
+	cmodel := make(chan *fakeModel)
+	defer pooling.Close()
+
+	//cout := make(chan string)
+	wg := new(sync.WaitGroup)
+	go func() {
+		for wi := 0; wi < 20; wi++ {
+			go func() {
+				errors := []string{}
+				for model := range cmodel {
+					func() {
+						defer wg.Done()
+						pconn, err := pooling.Get()
+						if err != nil {
+							errors = append(errors, toolkit.Sprintf("unable to get connection. %s", err.Error()))
+						} else {
+							defer pconn.Release()
+							err = Save(pconn.Connection(), model)
+							if err != nil {
+								errors = append(errors, toolkit.Sprintf("unable to save data. %s", err.Error()))
+							}
+
+							//--- give some delay yo ensure pooling queue process taken place
+							time.Sleep(time.Duration(toolkit.RandInt(10)) * time.Millisecond)
+						}
+					}()
+				}
+				//cout <- strings.Join(errors, "\n")
+			}()
+		}
+	}()
+
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		fm := newFake()
+		fm.ID = toolkit.Sprintf("pooling-%d", i)
+		fm.Title = "This user is saved using DB Pool"
+		cmodel <- fm
+	}
+	close(cmodel)
+
+	wg.Wait()
 }
 
 func TestClose(t *testing.T) {
