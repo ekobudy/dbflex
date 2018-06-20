@@ -179,7 +179,7 @@ func NewConnectionFromUri(uri string, config toolkit.M) (IConnection, error) {
 			mq, e := url.ParseQuery(u.RawQuery)
 			if e == nil {
 				for k, v := range mq {
-					si.Config.Set(k, v)
+					si.Config.Set(k, v[0])
 				}
 			}
 		}

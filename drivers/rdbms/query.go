@@ -53,10 +53,6 @@ func (q *Query) buildCommandTemplate(data toolkit.M) (string, error) {
 	templateTxt := commands[string(cmdType)]
 
 	if cmdType == dbflex.QuerySelect {
-		if data.Has(dbflex.QueryWhere) {
-			data[dbflex.QueryWhere] = data[dbflex.QueryWhere]
-		}
-
 		fields := data.Get("fields", []string{}).([]string)
 		orderby := data.Get(dbflex.QueryOrder, "").(string)
 		groupby := data.Get(dbflex.QueryGroup, "").(string)

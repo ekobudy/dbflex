@@ -144,7 +144,16 @@ func NewCRUD(t *testing.T, ctxt string, count int, config toolkit.M) *CRUD {
 	return crud
 }
 
-func (crud *CRUD) RunTest() {
+func in(find string, values []string) bool {
+	for _, value := range values {
+		if value == find {
+			return true
+		}
+	}
+	return false
+}
+
+func (crud *CRUD) RunTest(testnames ...string) {
 	if crud.t == nil {
 		return
 	}
@@ -175,13 +184,26 @@ func (crud *CRUD) RunTest() {
 		}
 		defer close(c)
 
+		nofilter := len(testnames) == 0
 		crud.conn = c
-		crud.clear()
-		crud.insert()
-		crud.populate()
-		crud.delete()
-		crud.update()
-		crud.aggregate()
+		if nofilter || in("clear", testnames) {
+			crud.clear()
+		}
+		if nofilter || in("insert", testnames) {
+			crud.insert()
+		}
+		if nofilter || in("read", testnames) {
+			crud.populate()
+		}
+		if nofilter || in("delete", testnames) {
+			crud.delete()
+		}
+		if nofilter || in("update", testnames) {
+			crud.update()
+		}
+		if nofilter || in("aggregate", testnames) {
+			crud.aggregate()
+		}
 	})
 
 	return
