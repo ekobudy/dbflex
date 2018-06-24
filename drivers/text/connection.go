@@ -25,9 +25,10 @@ func init() {
 type Connection struct {
 	dbflex.ConnectionBase
 
-	dirInfo   os.FileInfo
-	dirPath   string
-	extension string
+	dirInfo        os.FileInfo
+	dirPath        string
+	extension      string
+	textObjSetting *TextObjSetting
 }
 
 func (c *Connection) Connect() error {
@@ -51,6 +52,7 @@ func (c *Connection) Connect() error {
 	c.dirPath = dirpath
 
 	c.extension = c.Config.Get("extension", "").(string)
+	c.textObjSetting = c.Config.Get("text_obj_setting", NewTextObjSetting(',')).(*TextObjSetting)
 	return nil
 }
 
@@ -73,6 +75,7 @@ func (c *Connection) NewQuery() dbflex.IQuery {
 	q := new(Query)
 	q.SetThis(q)
 	q.SetConnection(c)
+	q.textObjectSetting = c.textObjSetting
 	return q
 }
 

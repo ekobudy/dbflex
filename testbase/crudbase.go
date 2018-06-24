@@ -169,7 +169,11 @@ func (crud *CRUD) RunTest(testnames ...string) {
 	}
 
 	Convey("Dbox test case", crud.t, func() {
-		c, e := dbflex.NewConnectionFromUri(crud.conntxt, nil)
+		var connCfg = toolkit.M{}
+		if crud.config != nil {
+			connCfg = crud.config.Get("conn_config", toolkit.M{}).(toolkit.M)
+		}
+		c, e := dbflex.NewConnectionFromUri(crud.conntxt, connCfg)
 		Convey("Open connection should not be nil", func() {
 			So(c, ShouldNotBeNil)
 		})

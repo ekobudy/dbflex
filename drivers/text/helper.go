@@ -217,3 +217,7 @@ func textToInterface(txt string, typeName string, dateFormat string) interface{}
 	}
 	return objField
 }
+
+func objToText(data interface{}, cfg *TextObjSetting) (string, error) {
+	return "", nil
+}

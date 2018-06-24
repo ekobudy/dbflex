@@ -130,6 +130,8 @@ func TestTextToObj(t *testing.T) {
 }
 func TestCRUD(t *testing.T) {
 	workpath := "/Users/ariefdarmawan/Go/src/github.com/eaciit/dbflex/data"
-	crud := testbase.NewCRUD(t, toolkit.Sprintf("text://localhost/%s?extension=csv&separator=comma", workpath), 1000, nil)
-	crud.RunTest("clear", "insert")
+	crud := testbase.NewCRUD(t, toolkit.Sprintf("text://localhost/%s?extension=csv&separator=comma", workpath),
+		100,
+		toolkit.M{}.Set("conn_config", toolkit.M{}.Set("text_object_setting", cfg)))
+	crud.RunTest("clear", "insert", "read")
 }
